@@ -10,7 +10,7 @@ Beauty clinic appointment app. This repository holds the first HTML prototype an
 
 The Admin tab is locked for salon staff and guests until the admin signs in.
 
-Open `app/index.html` in a browser to try it. Everything in it is sample data. Prices are in rupees (₹).
+Open `index.html` in a browser to try it, or visit https://vishalsaxen.github.io/beautinix/ once GitHub Pages is on (Settings → Pages → Deploy from a branch → `main`, `/ (root)`). Everything in it is sample data. Prices are in rupees (₹).
 
 ## Admin login (prototype)
 
@@ -18,7 +18,7 @@ Open `app/index.html` in a browser to try it. Everything in it is sample data. P
 | --- | --- |
 | `admin@beautinix.de` | `Beautinix@2026` |
 
-This starting login is hard-coded in `app/index.html`. "Forgot password?" lets the admin set a new password with a 6-digit code. In the prototype the code is shown on screen and the new password is saved only in that browser.
+This starting login is hard-coded in `index.html`. "Forgot password?" lets the admin set a new password with a 6-digit code. In the prototype the code is shown on screen and the new password is saved only in that browser.
 
 > This repository is public, so anyone can read this password. Change it before the app holds real data, and move the password check to a server when the backend is built.
 

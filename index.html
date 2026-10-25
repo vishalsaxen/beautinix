@@ -398,17 +398,16 @@ function renderAuth(el){
   if(authView==="login"){
     body=`<div class="auth-head"><h1>Admin sign-in</h1><p>Manage salons, staff, services and bookings.</p></div>
     <form class="panel" id="login-form" novalidate>
-      <label class="f">Login ID<input class="input" id="login-id" type="email" autocomplete="username" value="${ADMIN_ID}" required></label>
+      <label class="f">Login ID<input class="input" id="login-id" type="email" autocomplete="username" placeholder="you@example.com" required></label>
       <label class="f">Password<span class="pw"><input class="input" id="login-pw" type="password" autocomplete="current-password" required><button type="button" id="pw-show">Show</button></span></label>
       ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
       <button class="btn primary block" type="submit">Sign in</button>
       <button class="link" type="button" id="to-forgot">Forgot password?</button>
-    </form>
-    <p class="note">Starting login for this prototype: <span class="mono">${ADMIN_ID}</span> / <span class="mono">${DEFAULT_PW}</span></p>`;
+    </form>`;
   } else if(authView==="forgot"){
     body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your login ID and we'll send a 6-digit code to its email address.</p></div>
     <form class="panel" id="forgot-form" novalidate>
-      <label class="f">Login ID<input class="input" id="fp-id" type="email" value="${ADMIN_ID}" required></label>
+      <label class="f">Login ID<input class="input" id="fp-id" type="email" placeholder="you@example.com" required></label>
       ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
       <button class="btn primary block" type="submit">Send code</button>
       <button class="link" type="button" id="to-login">Back to sign-in</button>
