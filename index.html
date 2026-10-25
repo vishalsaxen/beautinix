@@ -61,6 +61,26 @@ button{cursor:pointer}
 .contact a,.contact span{display:inline-flex;align-items:center;gap:6px;color:var(--fg);text-decoration:none}
 .contact a:hover{color:var(--accent)}
 .req{color:var(--accent)}
+.wa-field,.price-field{display:flex;align-items:stretch}
+.wa-field .cc,.price-field .cc{display:flex;align-items:center;padding:0 10px;background:var(--raised);border:1px solid var(--line);border-right:0;border-radius:12px 0 0 12px;color:var(--muted);font-weight:700}
+.wa-field .input,.price-field .input{border-radius:0 12px 12px 0;min-width:0}
+.price-field .input{width:96px}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.avail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.avail-btn{border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px 8px;font-weight:700;color:var(--muted)}
+.avail-btn:disabled{cursor:default}
+.avail-btn.a-available[aria-pressed="true"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.avail-btn.a-busy[aria-pressed="true"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.avail-btn.a-unavailable[aria-pressed="true"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.svc-add{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:end;border-top:1px solid var(--line-soft);padding-top:12px}
+.svc-list{display:flex;flex-direction:column;gap:6px}
+.svc-list>span{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line-soft);padding-bottom:4px}
+.price{color:var(--gold);font-weight:800}
+.masked dd{font-family:var(--mono);letter-spacing:.2em;color:var(--dim)}
+.salon-card h3 .sample{vertical-align:2px;margin-left:6px}
+.salon-card a{color:var(--fg)}
+@media (max-width:560px){.svc-add{grid-template-columns:minmax(0,1fr)}.avail-btn{padding:10px 4px;font-size:13px}}
+
 .invite .code{font-size:1.9rem;font-weight:500;letter-spacing:.14em;color:var(--gold)}
 .msg{white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;margin:0;font-family:var(--sans);font-size:13px;color:var(--fg);overflow-wrap:anywhere}
 a.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
@@ -112,7 +132,7 @@ textarea.input{resize:vertical;min-height:90px}
 .grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
 .chart svg{width:100%;height:auto;display:block}
 .list{display:flex;flex-direction:column}
-.list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.list-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 0;border-top:1px solid var(--line-soft)}
 .list-item:first-child{border-top:0}
 .list-item .sub{color:var(--muted);font-size:12px}
 
@@ -142,7 +162,7 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .btn.sm{padding:5px 11px;font-size:12px;border-radius:10px}
 .btn.block{width:100%;padding:12px}
 .link{background:none;border:0;color:var(--accent);font-weight:700;padding:0}
-.row-actions{display:flex;gap:6px;justify-content:flex-end}
+.row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
 .card .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
@@ -301,6 +321,10 @@ const SALONS=[
   {id:"muc",name:"Beautinix München Schwabing",city:"München",addr:"Leopoldstraße 41, 80802 München",chairs:6,hours:"Mon–Sat 09:00–19:00",rating:4.7,util:74,person:"Jonas Becker",wa:"+91 99300 21876",email:"",desc:""},
   {id:"ham",name:"Beautinix Hamburg Eppendorf",city:"Hamburg",addr:"Eppendorfer Weg 210, 20251 Hamburg",chairs:5,hours:"Tue–Sat 10:00–19:00",rating:4.9,util:69,person:"Claire Dubois",wa:"+91 98450 77310",email:"hamburg@beautinix.de",desc:"Skin clinic and colour studio."},
 ];
+// Sample listing so die Gäste isn't empty in the demo.
+SALONS.push({id:"pallavi",sample:true,status:"active",name:"Pallavi's Paradise",person:"Pallavi",wa:"+91 98765 43210",email:"pallavi@example.com",state:"Madhya Pradesh",city:"Indore",pin:"452001",
+  addr:"Indore, Madhya Pradesh 452001",chairs:"–",hours:"10:00–20:00",rating:"–",util:0,availability:"available",
+  services:[{id:"p1",name:"Facial",price:450},{id:"p2",name:"Eyebrow threading",price:50},{id:"p3",name:"Waxing (full arms)",price:300},{id:"p4",name:"Haircut",price:250},{id:"p5",name:"Hair spa",price:800},{id:"p6",name:"Bridal makeup",price:8000}]});
 const STAFF=[
   {id:1,name:"Lena Hoffmann",role:"Senior stylist",salon:"ber",skills:["Cut","Balayage"],today:7},
   {id:2,name:"Amira Haddad",role:"Aesthetician",salon:"ber",skills:["Facial","Microneedling"],today:5},
@@ -384,22 +408,29 @@ function showSection(sec){
   // Salon staff and guests can't open Admin: the tab is locked until the admin signs in.
   $("#tab-admin").disabled=!isAdmin();
   $("#tab-admin").querySelector(".lock-ico").toggleAttribute("hidden",isAdmin());
-  $("#signin").hidden=isAdmin()||!!salonUser()||sec==="admin";
+  $("#signin").hidden=isAdmin()||!!salonUser()||!!guestUser()||sec==="admin";
   SECTIONS.forEach(s=>{$("#sec-"+s).hidden=s!==sec;$("#tab-"+s).setAttribute("aria-selected",s===sec)});
   $("#role-chip").textContent=CHIP[sec];
   ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
-  $("#logout").hidden=!(isAdmin()||salonUser());
+  $("#logout").hidden=!(isAdmin()||salonUser()||guestUser());
   try{history.replaceState(null,"","#"+sec)}catch(e){}
   window.scrollTo(0,0);
 }
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>showSection(b.dataset.sec));
 $("#refresh").onclick=()=>{showSection(current);toast("Up to date")};
-$("#logout").onclick=()=>{sess.set("bx-admin",null);sess.set("bx-salon-user",null);authView="login";salonAuth="login";showSection("salon");toast("Signed out")};
+$("#logout").onclick=()=>{const was=guestUser()&&!isAdmin()&&!salonUser()?"guests":"salon";["bx-admin","bx-salon-user","bx-guest-user"].forEach(k=>sess.set(k,null));authView="login";salonAuth="login";guestView="list";gb.salon=null;showSection(was);toast("Signed out")};
 $("#signin").onclick=()=>{authView="login";authErr="";showSection("admin")};
 
 // ---------- Shared helpers for accounts ----------
 const APP_URL="https://vishalsaxen.github.io/beautinix/";
-const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const EMAIL_RE=/^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+const emailProblem=e=>!e?"Enter an email address.":(!EMAIL_RE.test(e)||e.includes("..")||e.startsWith("."))?"Enter a valid email address, for example name@gmail.com.":"";
+// WhatsApp numbers: +91 is fixed, the person types exactly 10 digits.
+const waField=(id,val)=>`<span class="wa-field"><span class="cc mono">+91</span><input class="input mono" id="${id}" type="tel" inputmode="numeric" maxlength="10" value="${val}" placeholder="9876543210" autocomplete="tel-national"></span>`;
+const waDigits=v=>String(v).replace(/\D/g,"");
+const waProblem=d=>/^[0-9]{10}$/.test(d)?"":"Enter exactly 10 digits after +91.";
+const waFmt=d=>`+91 ${d.slice(0,5)} ${d.slice(5)}`;
+function bindDigits(root){root.querySelectorAll(".wa-field input,.price-field input,input[inputmode=numeric]").forEach(i=>i.addEventListener("input",()=>{const c=i.value.replace(/\D/g,"").slice(0,i.maxLength>0?i.maxLength:99);if(c!==i.value)i.value=c}))}
 const otp=()=>String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000);
 async function hashPw(pw){
   const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("beautinix:"+pw));
@@ -483,7 +514,7 @@ let adminView="add";
 const ADMIN_TABS=[["add","Add Salon Details","plus"]];
 function renderAdmin(){
   const el=$("#sec-admin");
-  if(!isAdmin()){$("#logout").hidden=!salonUser();renderAuth(el);return}
+  if(!isAdmin()){$("#logout").hidden=!(salonUser()||guestUser());renderAuth(el);return}
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
@@ -494,7 +525,7 @@ function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p
 const STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
 
 // Admin input page: saving creates a unique code and opens WhatsApp with the invite for the salon owner.
-let addErr={},addDraft={},lastInvite=null;
+let addErr={},addDraft={},lastInvite=null,confirmDel=null;
 function invitePanel(s){
   return `<div class="panel invite" id="invite">
     <span class="eyebrow">Invite ready</span>
@@ -519,7 +550,7 @@ function aAdd(el){
     <div class="form-grid" style="align-items:start">
       <label class="f"><span>Salon name <span class="req">*</span></span><input class="input" id="ad-name" value="${v("name")}" placeholder="Glow Studio Bandra" required>${e("name")}</label>
       <label class="f"><span>Name of the person <span class="req">*</span></span><input class="input" id="ad-person" value="${v("person")}" placeholder="Ananya Sharma" autocomplete="name" required>${e("person")}</label>
-      <label class="f"><span>WhatsApp number <span class="req">*</span></span><input class="input mono" id="ad-wa" type="tel" inputmode="tel" value="${v("wa")}" placeholder="+91 98765 43210" required>${e("wa")}</label>
+      <label class="f"><span>WhatsApp number <span class="req">*</span></span>${waField("ad-wa",v("wa"))}${e("wa")}</label>
       <label class="f"><span>Email <span class="req">*</span> <span class="hint">(for password OTPs)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="owner@glowstudio.in" autocomplete="email" required>${e("email")}</label>
       <label class="f"><span>State <span class="req">*</span></span><select class="input" id="ad-state" required><option value="">Select state</option>${STATES.map(x=>`<option${addDraft.state===x?" selected":""}>${x}</option>`).join("")}</select>${e("state")}</label>
       <label class="f"><span>City <span class="req">*</span></span><input class="input" id="ad-city" value="${v("city")}" placeholder="Mumbai" required>${e("city")}</label>
@@ -529,10 +560,18 @@ function aAdd(el){
   </form>
   ${invited.length?`<div class="panel"><div class="panel-head"><h3>Salons you've added</h3><span>${invited.length}</span></div><div class="list">
     ${invited.map(s=>`<div class="list-item"><div><b>${esc(s.name)}</b><div class="sub">${esc(s.person)} · ${esc(s.city)}, ${esc(s.state)} · <span class="mono">${s.code}</span></div></div>
-      <div class="row-actions">${s.status==="active"?`<span class="pill s-confirmed">Account created</span>`:`<span class="pill s-pending">Invite sent</span><a class="btn sm" href="${waLink(s)}" target="_blank" rel="noopener">Resend</a>`}</div></div>`).join("")}
+      <div class="row-actions">${confirmDel===s.id?`<span class="err">Delete ${esc(s.name)} and its owner account?</span><button class="btn sm danger" data-delsalon="${s.id}">Delete</button><button class="btn sm" data-keep>Keep</button>`
+        :`${s.status==="active"?`<span class="pill s-confirmed">Account created</span>`:`<span class="pill s-pending">Invite sent</span><a class="btn sm" href="${waLink(s)}" target="_blank" rel="noopener">Resend</a>`}<button class="btn sm" data-askdel="${s.id}">Delete</button>`}</div></div>`).join("")}
   </div></div>`:""}`;
   if(inv)$("#copy-msg").onclick=()=>copyText(inviteText(inv));
-  const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:$("#ad-wa").value.trim(),email:$("#ad-email").value.trim().toLowerCase(),
+  bindDigits(el);
+  el.querySelectorAll("[data-askdel]").forEach(b=>b.onclick=()=>{confirmDel=b.dataset.askdel;renderAdmin()});
+  el.querySelectorAll("[data-keep]").forEach(b=>b.onclick=()=>{confirmDel=null;renderAdmin()});
+  el.querySelectorAll("[data-delsalon]").forEach(b=>b.onclick=()=>{const id=b.dataset.delsalon,s=salon(id);
+    const i=SALONS.indexOf(s);if(i>=0)SALONS.splice(i,1);saveAdded();
+    BOOKINGS=BOOKINGS.filter(x=>x.salon!==id);saveBookings();
+    if(lastInvite===id)lastInvite=null;confirmDel=null;renderAdmin();toast(`${s.name} and its owner account were deleted`)});
+  const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:waDigits($("#ad-wa").value),email:$("#ad-email").value.trim().toLowerCase(),
     state:$("#ad-state").value,city:$("#ad-city").value.trim(),pin:$("#ad-pin").value.trim()}};
   $("#ad-clear").onclick=()=>{addDraft={};addErr={};renderAdmin()};
   $("#add-form").onsubmit=ev=>{ev.preventDefault();grab();addErr={};
@@ -540,21 +579,17 @@ function aAdd(el){
     if(!d.name)addErr.name="Enter the salon's name.";
     else if(SALONS.some(x=>x.name.toLowerCase()===d.name.toLowerCase()))addErr.name="A salon with this name already exists.";
     if(!d.person)addErr.person="Enter the name of the person for this salon.";
-    let digits=d.wa.replace(/[^0-9]/g,"");
-    if(digits.length===12&&digits.startsWith("91"))digits=digits.slice(2);
-    if(digits.length===11&&digits.startsWith("0"))digits=digits.slice(1);
-    const wa=`+91 ${digits.slice(0,5)} ${digits.slice(5)}`;
-    if(!/^[6-9][0-9]{9}$/.test(digits))addErr.wa="Enter a 10-digit Indian mobile number, for example +91 98765 43210.";
+    const wa=waFmt(d.wa);
+    if(waProblem(d.wa))addErr.wa=waProblem(d.wa);
     else if(SALONS.some(x=>x.wa===wa))addErr.wa="Another salon already uses this WhatsApp number.";
-    if(!d.email)addErr.email="Enter an email address. The owner gets password codes there.";
-    else if(!EMAIL_RE.test(d.email))addErr.email="Check the email address, for example owner@glowstudio.in.";
+    if(emailProblem(d.email))addErr.email=emailProblem(d.email)+(d.email?"":" The owner gets password codes there.");
     else if(SALONS.some(x=>(x.email||"").toLowerCase()===d.email))addErr.email="Another salon already uses this email address.";
     if(!d.state)addErr.state="Choose the state.";
     if(!d.city)addErr.city="Enter the city.";
     if(!/^[1-9][0-9]{5}$/.test(d.pin))addErr.pin="Enter the 6-digit PIN code.";
     if(Object.keys(addErr).length){renderAdmin();return}
     const n={id:"s"+Date.now(),added:true,status:"invited",code:newCode(),name:d.name,person:d.person,wa,email:d.email,state:d.state,city:d.city,pin:d.pin,
-      addr:`${d.city}, ${d.state} ${d.pin}`,chairs:"–",hours:"Not set yet",rating:"–",util:0};
+      addr:`${d.city}, ${d.state} ${d.pin}`,chairs:"–",hours:"Not set yet",rating:"–",util:0,availability:"available",services:[]};
     SALONS.push(n);saveAdded();addDraft={};lastInvite=n.id;
     renderAdmin();
     // Open WhatsApp with the invite. Browsers may block this; the button in the panel always works.
@@ -657,8 +692,8 @@ function renderSalon(){
   const start=9,end=20,hourPx=60,headH=58;
   const ap=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled");
   const top=t=>mins(t)-start*60;
-  el.innerHTML=nextCard(ap,"Next guest · "+esc(place(s)))+`
-  <div class="pane-head"><div><h1>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h1><p>Today · ${ap.length} appointments${team.length?" · tap one to check the guest in":""}</p></div>
+  el.innerHTML=(s.services?"":nextCard(ap,"Next guest · "+esc(place(s))))+`
+  <div class="pane-head"><div><h1>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h1><p>${s.services?`${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}`:`Today · ${ap.length} appointments${team.length?" · tap one to check the guest in":""}`}</p></div>
     ${me?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${SALONS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><span class="sample">Sample data</span></div>`}</div>
   <div class="panel"><div class="contact">
     ${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}
@@ -666,66 +701,181 @@ function renderSalon(){
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
     ${s.added?`<span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>`:""}
   </div>${s.desc?`<p style="color:var(--muted)">${esc(s.desc)}</p>`:""}</div>
-  <div class="timeline"><div class="tl" style="grid-template-columns:64px repeat(${Math.max(team.length,1)},minmax(170px,1fr))">
+  ${s.services?ownerPanels(s,!!me&&me.id===s.id):`<div class="timeline"><div class="tl" style="grid-template-columns:64px repeat(${Math.max(team.length,1)},minmax(170px,1fr))">
     <div class="hcell hours" style="height:${headH}px"></div>${team.map(t=>`<div class="hcell" style="height:${headH}px">${t.name}<small>${t.role}</small></div>`).join("")||`<div class="hcell" style="height:${headH}px">No staff yet</div>`}
     <div class="hours">${Array.from({length:end-start},(_,i)=>`<div class="hour">${String(start+i).padStart(2,"0")}:00</div>`).join("")}</div>
     ${team.map(t=>`<div class="col" style="height:${(end-start)*hourPx}px">${ap.filter(a=>a.staff===t.id).map(a=>{const v=svc(a.svc);return `<button class="appt ${a.status}" style="top:${top(a.time)}px;height:${v.min-4}px" data-id="${a.id}"><b>${a.time} ${esc(a.guest)}</b><span>${v.name}${a.status==="checkedin"?" · checked in":a.status==="pending"?" · awaiting confirmation":""}</span></button>`}).join("")}</div>`).join("")}
     <div class="now" style="top:${headH+top(NOW)}px" aria-hidden="true"></div>
-  </div></div>`;
+  </div></div>`}`;
+  if(s.services)bindOwner(el,s);
   if(!me){$("#salon-pick").value=s.id;
     $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
   el.querySelectorAll(".appt").forEach(b=>b.onclick=()=>{const a=APPTS.find(x=>x.id==b.dataset.id);
     if(a.status==="checkedin"){a.status="confirmed";toast(`${a.guest}: check-in undone`)}else{a.status="checkedin";toast(`${a.guest} checked in`)}renderSalon()});
 }
 
+// ---------- Salon services & availability (owner) ----------
+const AVAIL={available:["Available","s-confirmed"],busy:["Busy","s-pending"],unavailable:["Not available","s-cancelled"]};
+const availPill=s=>{const[a,c]=AVAIL[s.availability||"available"];return `<span class="pill ${c}">${a}</span>`};
+const QUICK=["Facial","Clean-up","Eyebrow threading","Upper lip threading","Waxing (full arms)","Haircut","Hair spa","Hair colour","Manicure","Pedicure","Party makeup","Bridal makeup"];
+const BOOK_KEY="bx-bookings";
+let BOOKINGS=[];try{BOOKINGS=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]")}catch(e){}
+const saveBookings=()=>{try{localStorage.setItem(BOOK_KEY,JSON.stringify(BOOKINGS))}catch(e){}};
+let svcErr="";
+function ownerPanels(s,editable){
+  const mine=BOOKINGS.filter(b=>b.salon===s.id).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  return `<div class="grid2">
+  <div class="panel"><div class="panel-head"><h3>Services and prices</h3><span>${s.services.length} listed</span></div>
+    ${s.services.length?`<div class="list">${s.services.map(v=>`<div class="list-item"><b>${esc(v.name)}</b>
+      <div class="row-actions">${editable?`<span class="price-field"><span class="cc">₹</span><input class="input mono" data-price="${v.id}" inputmode="numeric" maxlength="6" value="${v.price}" aria-label="Price for ${esc(v.name)}"></span><button class="btn sm" data-del="${v.id}">Remove</button>`:`<span class="num price">${inr(v.price)}</span>`}</div></div>`).join("")}</div>`
+      :`<p class="small">No services yet.${editable?" Add your first one below, for example Facial for ₹450.":""}</p>`}
+    ${editable?`<form id="svc-form" class="svc-add" novalidate>
+      <label class="f">Service<input class="input" id="sv-name" list="sv-quick" placeholder="Facial" autocomplete="off"></label>
+      <datalist id="sv-quick">${QUICK.filter(q=>!s.services.some(v=>v.name.toLowerCase()===q.toLowerCase())).map(q=>`<option value="${q}">`).join("")}</datalist>
+      <label class="f">Price<span class="price-field"><span class="cc">₹</span><input class="input mono" id="sv-price" inputmode="numeric" maxlength="6" placeholder="450"></span></label>
+      <button class="btn primary" type="submit">Add service</button>
+      ${svcErr?`<p class="err" role="alert" style="grid-column:1/-1">${svcErr}</p>`:""}
+    </form>`:""}
+  </div>
+  <div class="panel"><div class="panel-head"><h3>Availability</h3>${availPill(s)}</div>
+    <p class="small">Guests see this next to ${esc(s.name)} in die Gäste.</p>
+    <div class="avail" role="group" aria-label="Availability">${Object.entries(AVAIL).map(([k,[l]])=>`<button class="avail-btn a-${k}" data-avail="${k}" aria-pressed="${(s.availability||"available")===k}" ${editable?"":"disabled"}>${l}</button>`).join("")}</div>
+    <div class="panel-head" style="margin-top:8px"><h3>Bookings</h3><span>${mine.length}</span></div>
+    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item"><div><b>${esc(b.guest)}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(new Date(b.date),{day:"numeric",month:"short"})} ${b.time}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
+      :`<p class="small">No bookings yet. They appear here when guests book.</p>`}
+  </div></div>`;
+}
+function bindOwner(el,s){
+  el.querySelectorAll("[data-avail]").forEach(b=>b.onclick=()=>{s.availability=b.dataset.avail;saveAdded();renderSalon();toast(`Guests now see: ${AVAIL[s.availability][0]}`)});
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{s.services=s.services.filter(v=>v.id!==b.dataset.del);saveAdded();renderSalon();toast("Service removed")});
+  el.querySelectorAll("[data-price]").forEach(i=>i.onchange=()=>{const p=+i.value;const v=s.services.find(x=>x.id===i.dataset.price);
+    if(!/^[0-9]{1,6}$/.test(i.value)||p<1){i.value=v.price;toast("Enter a price in whole rupees, for example 450");return}
+    v.price=p;saveAdded();toast(`${v.name} is now ${inr(p)}`)});
+  const f=$("#svc-form");if(f)f.onsubmit=e=>{e.preventDefault();
+    const name=$("#sv-name").value.trim().replace(/\s+/g," "),pr=$("#sv-price").value.trim();
+    svcErr=!name?"Enter the service name, for example Facial.":
+      s.services.some(v=>v.name.toLowerCase()===name.toLowerCase())?`${name} is already on your list. Change its price above instead.`:
+      !/^[0-9]{1,6}$/.test(pr)||+pr<1?"Enter the price in whole rupees, for example 450.":"";
+    if(svcErr){renderSalon();$("#sv-name").value=name;$("#sv-price").value=pr;return}
+    s.services.push({id:"v"+Date.now(),name:name[0].toUpperCase()+name.slice(1),price:+pr});saveAdded();renderSalon();toast(`${name} added at ${inr(+pr)}`)};
+  bindDigits(el);
+}
+
 // ---------- die Gäste ----------
-const book={step:0,svc:null,salon:null,day:0,time:null,done:false};
-const STEP_NAMES=["Treatment","Salon","Date & time","Confirm"];
-function days(){const out=[];const d=new Date(2026,9,25);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
+// Guests see each salon's name and availability. Everything else stays masked until they create an account.
+const GUEST_KEY="bx-guests";
+let GUESTS_ACC=[];try{GUESTS_ACC=JSON.parse(localStorage.getItem(GUEST_KEY)||"[]")}catch(e){}
+const saveGuests=()=>{try{localStorage.setItem(GUEST_KEY,JSON.stringify(GUESTS_ACC))}catch(e){}};
+const guestUser=()=>{const id=sess.get("bx-guest-user");return id?GUESTS_ACC.find(g=>g.id===id)||null:null};
+let guestView="list",guestErr="",guestDraft={},guestOtp=null,guestOtpFor=null;
+const gb={salon:null,svc:null,day:0,time:null,done:null};
+function days(){const out=[];const d=new Date();d.setHours(0,0,0,0);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
 const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
+const MASK="*****";
+const listedSalons=()=>SALONS.filter(s=>s.services&&(s.sample||s.status==="active"));
+
+function guestAuthView(){
+  const err=guestErr?`<p class="err" role="alert">${guestErr}</p>`:"";
+  const v=k=>esc(guestDraft[k]||"");
+  if(guestView==="signup")return `<div class="auth-head"><h1>Create your guest account</h1><p>See salon services, prices and contact details, and book.</p></div>
+    <form class="panel" id="g-signup" novalidate>
+      <label class="f">Your name<input class="input" id="gs-name" value="${v("name")}" autocomplete="name" placeholder="Riya Mehta"></label>
+      <label class="f">WhatsApp number${waField("gs-wa",v("wa"))}</label>
+      <label class="f">Email<input class="input" id="gs-email" type="email" value="${v("email")}" autocomplete="email" placeholder="riya@gmail.com"></label>
+      <label class="f">Password<input class="input" id="gs-pw" type="password" autocomplete="new-password"></label>
+      <label class="f">Repeat password<input class="input" id="gs-pw2" type="password" autocomplete="new-password"></label>
+      ${err}<button class="btn primary block" type="submit">Create account</button>
+      <button class="link" type="button" data-gv="login">I already have an account</button></form>`;
+  if(guestView==="login")return `<div class="auth-head"><h1>Guest sign-in</h1><p>Sign in to see salon details and book.</p></div>
+    <form class="panel" id="g-login" novalidate>
+      <label class="f">Email<input class="input" id="gl-email" type="email" autocomplete="username" placeholder="riya@gmail.com"></label>
+      <label class="f">Password<input class="input" id="gl-pw" type="password" autocomplete="current-password"></label>
+      ${err}<button class="btn primary block" type="submit">Sign in</button>
+      <button class="link" type="button" data-gv="forgot">Forgot password?</button>
+      <button class="link" type="button" data-gv="signup">New here? Create an account</button></form>`;
+  if(guestView==="forgot")return `<div class="auth-head"><h1>Reset your password</h1><p>Enter your email and we'll send a 6-digit code to it.</p></div>
+    <form class="panel" id="g-forgot" novalidate>
+      <label class="f">Email<input class="input" id="gf-email" type="email" autocomplete="username"></label>
+      ${err}<button class="btn primary block" type="submit">Send code</button>
+      <button class="link" type="button" data-gv="login">Back to sign-in</button></form>`;
+  const g=GUESTS_ACC.find(x=>x.id===guestOtpFor);
+  return `<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(g.email)}. It's valid for 10 minutes.</p></div>
+    <p class="note">Prototype: no email is sent. Your code is <b>${guestOtp}</b></p>
+    <form class="panel" id="g-reset" novalidate>
+      <label class="f">6-digit code<input class="input mono" id="gr-code" inputmode="numeric" maxlength="6"></label>
+      <label class="f">New password<input class="input" id="gr-pw" type="password" autocomplete="new-password"></label>
+      <label class="f">Repeat new password<input class="input" id="gr-pw2" type="password" autocomplete="new-password"></label>
+      ${err}<button class="btn primary block" type="submit">Save new password</button>
+      <button class="link" type="button" data-gv="login">Back to sign-in</button></form>`;
+}
+function salonCard(s,g){
+  const off=(s.availability||"available")==="unavailable";
+  return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}${s.sample?' <span class="sample">Sample</span>':""}</h3>${availPill(s)}</div>
+    ${g?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
+      <div class="svc-list">${s.services.length?s.services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${inr(v.price)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
+      <button class="btn primary" data-book="${s.id}" ${off||!s.services.length?"disabled":""}>${off?"Not taking bookings":"Book"}</button>`
+    :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
+      <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
+  </article>`;
+}
+function bookingView(g){
+  const s=salon(gb.salon);
+  if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(new Date(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
+    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${inr(b.price)}, paid at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
+    <div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`}
+  const busy=[["10:00","12:30","15:00"],["09:30","11:00","16:30"],["13:00","14:00","17:30"]][gb.day%3];
+  const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
+  const v=s.services.find(x=>x.id===gb.svc);
+  return `<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)} · ${availPill(s)}</p></div><button class="btn" id="gb-back">Back to salons</button></div>
+    <h2>Choose a service</h2><div class="choices">${s.services.map(x=>`<button class="choice" data-svc="${x.id}" aria-pressed="${gb.svc===x.id}"><b>${esc(x.name)}</b><span class="price num">${inr(x.price)}</span></button>`).join("")}</div>
+    <h2>Pick a day and time</h2>
+    <div class="days">${days().map((d,i)=>`<button class="day" data-day="${i}" aria-pressed="${gb.day===i}"><small>${fmt(d,{weekday:"short"})}</small><b class="num">${d.getDate()}</b></button>`).join("")}</div>
+    <div class="slots">${times.map(t=>{const n=new Date(),off=busy.includes(t)||(gb.day===0&&mins(t)<=n.getHours()*60+n.getMinutes());return `<button class="slot" data-time="${t}" aria-pressed="${gb.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>
+    <div class="panel summary"><dl><dt>Name</dt><dd>${esc(g.name)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(g.wa)}</dd><dt>Service</dt><dd>${v?`${esc(v.name)} · ${inr(v.price)}`:"Choose a service"}</dd><dt>When</dt><dd>${gb.time?`${fmt(days()[gb.day],{weekday:"short",day:"numeric",month:"short"})}, ${gb.time}`:"Choose a time"}</dd></dl>
+      <button class="btn primary block" id="gb-confirm" ${v&&gb.time?"":"disabled"}>Book appointment</button></div>`;
+}
 function renderGuests(){
-  const el=$("#sec-guests");
-  let body="";
-  if(book.done){
-    const s=svc(book.svc),sl=salon(book.salon),d=days()[book.day];
-    body=`<div class="ok-box">You're booked for ${fmt(d,{weekday:"long",day:"numeric",month:"long"})} at ${book.time}. The salon will confirm shortly.</div>
-      <div class="panel summary"><h3>Your appointment</h3><dl><dt>Treatment</dt><dd>${s.name}</dd><dt>Salon</dt><dd>${esc(sl.name)}<br><span style="font-weight:400;color:var(--muted)">${esc(sl.addr)}</span></dd><dt>When</dt><dd class="num">${fmt(d,{day:"numeric",month:"short"})}, ${book.time} · ${s.min} min</dd><dt>Price</dt><dd class="num">${inr(s.price)}, paid at the salon</dd></dl></div>
-      <div class="nav"><span></span><button class="btn primary" id="again">Book another treatment</button></div>`;
-  } else if(book.step===0){
-    body=`<h2>What would you like?</h2><div class="choices">${SERVICES.filter(s=>s.active).map(s=>`<button class="choice" data-svc="${s.id}" aria-pressed="${book.svc===s.id}"><b>${s.name}</b><span>${s.cat} · ${s.min} min</span><span class="price num">${inr(s.price)}</span></button>`).join("")}</div>`;
-  } else if(book.step===1){
-    body=`<h2>Choose a salon</h2><div class="choices">${SALONS.map(s=>`<button class="choice" data-salon="${s.id}" aria-pressed="${book.salon===s.id}"><b>${esc(place(s))}</b><span>${esc(s.addr||s.desc||"")}</span><span>★ ${s.rating} · ${s.hours}</span></button>`).join("")}</div>`;
-  } else if(book.step===2){
-    const busy=[["10:00","12:30","15:00"],["09:30","11:00","16:30"],["13:00","14:00","17:30"]][book.day%3];
-    const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
-    body=`<h2>Pick a day and time</h2>
-      <div class="days">${days().map((d,i)=>`<button class="day" data-day="${i}" aria-pressed="${book.day===i}"><small>${fmt(d,{weekday:"short"})}</small><b class="num">${d.getDate()}</b></button>`).join("")}</div>
-      <div class="slots">${times.map(t=>{const off=busy.includes(t)||(book.day===0&&mins(t)<=mins(NOW));return `<button class="slot" data-time="${t}" aria-pressed="${book.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>`;
-  } else {
-    const s=svc(book.svc),sl=salon(book.salon),d=days()[book.day];
-    body=`<h2>Check your booking</h2><form class="panel summary" id="confirm-form"><dl><dt>Treatment</dt><dd>${s.name} · ${s.min} min</dd><dt>Salon</dt><dd>${esc(sl.name)}</dd><dt>When</dt><dd class="num">${fmt(d,{weekday:"long",day:"numeric",month:"long"})}, ${book.time}</dd><dt>Price</dt><dd class="num">${inr(s.price)}</dd></dl>
-      <div class="form-grid"><label class="f">Your name<input class="input" id="g-name" required value="Hannah Schulz"></label><label class="f">Mobile number<input class="input" id="g-phone" type="tel" required value="+49 151 2345 6789"></label></div>
-      <button class="btn primary block" type="submit">Book appointment</button></form>`;
-  }
-  const canNext=[book.svc,book.salon,book.time][book.step];
-  const nav=book.done?"":book.step===3?`<div class="nav"><button class="btn" id="back">Back</button><span></span></div>`
-    :`<div class="nav">${book.step>0?`<button class="btn" id="back">Back</button>`:"<span></span>"}<button class="btn primary" id="next" ${canNext?"":"disabled"}>Continue</button></div>`;
-  el.innerHTML=`<div class="guest">
-    <div class="next"><div class="next-tile">${icon("cal").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">Book online</span><h2>Book your next treatment</h2><p>Pick a treatment, a salon and a time. It takes under a minute.</p></div></div>
-    ${book.done?"":`<div class="steps">${STEP_NAMES.map((n,i)=>`<span class="${i===book.step?"on":i<book.step?"done":""}">${i+1}. ${n}</span>`).join("")}</div>`}
-    ${body}${nav}</div>`;
-  el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{book.svc=b.dataset.svc;renderGuests()});
-  el.querySelectorAll("[data-salon]").forEach(b=>b.onclick=()=>{book.salon=b.dataset.salon;renderGuests()});
-  el.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{book.day=+b.dataset.day;book.time=null;renderGuests()});
-  el.querySelectorAll("[data-time]").forEach(b=>b.onclick=()=>{book.time=b.dataset.time;renderGuests()});
-  $("#next")&&($("#next").onclick=()=>{book.step++;renderGuests()});
-  $("#back")&&($("#back").onclick=()=>{book.step--;renderGuests()});
-  $("#again")&&($("#again").onclick=()=>{Object.assign(book,{step:0,svc:null,salon:null,day:0,time:null,done:false});renderGuests()});
-  const f=$("#confirm-form");if(f)f.onsubmit=e=>{e.preventDefault();
-    const name=$("#g-name").value.trim();if(!name||!$("#g-phone").value.trim()){toast("Add your name and mobile number to book");return}
-    const t=STAFF.find(x=>x.salon===book.salon);
-    if(book.day===0&&t)APPTS.push({id:Date.now()%100000,time:book.time,guest:name,svc:book.svc,staff:t.id,salon:book.salon,status:"pending"});
-    book.done=true;renderGuests()};
+  const el=$("#sec-guests");const g=guestUser();
+  let body;
+  if(!g&&guestView!=="list")body=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${guestAuthView()}</div>`;
+  else if(g&&gb.salon)body=`<div class="guest">${bookingView(g)}</div>`;
+  else{const list=listedSalons();
+    body=`<div class="guest">
+    <div class="next"><div class="next-tile">${icon("store").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">${g?`Hi ${esc(g.name.split(" ")[0])}`:"Find a salon"}</span><h2>Salons on Beautinix</h2><p>${g?"Pick a salon to see its services and book.":"Create a free account to see services, prices and contact details."}</p></div>
+      ${g?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
+    ${list.length?`<div class="cards">${list.map(s=>salonCard(s,g)).join("")}</div>`:`<p class="small">No salons yet. They appear here once the salon owner creates an account.</p>`}
+    </div>`}
+  el.innerHTML=body;
+  el.querySelectorAll("[data-gv]").forEach(b=>b.onclick=()=>{guestView=b.dataset.gv;guestErr="";renderGuests();window.scrollTo(0,0)});
+  bindDigits(el);
+  const fail=m=>{guestErr=m;renderGuests()};
+  const byEmail=m=>GUESTS_ACC.find(x=>x.email===m.trim().toLowerCase());
+  const su=$("#g-signup");if(su)su.onsubmit=async e=>{e.preventDefault();
+    guestDraft={name:$("#gs-name").value.trim(),wa:waDigits($("#gs-wa").value),email:$("#gs-email").value.trim().toLowerCase()};
+    const d=guestDraft;
+    const m=!d.name?"Enter your name.":waProblem(d.wa)||emailProblem(d.email)||(byEmail(d.email)?"An account with this email already exists. Sign in instead.":"")||pwProblem($("#gs-pw").value,$("#gs-pw2").value);
+    if(m)return fail(m);
+    const n={id:"g"+Date.now(),name:d.name,wa:waFmt(d.wa),email:d.email,pwHash:await hashPw($("#gs-pw").value)};
+    GUESTS_ACC.push(n);saveGuests();guestDraft={};sess.set("bx-guest-user",n.id);guestView="list";guestErr="";showSection("guests");toast("Account created. Salon details are now visible.")};
+  const li=$("#g-login");if(li)li.onsubmit=async e=>{e.preventDefault();
+    const x=byEmail($("#gl-email").value);
+    if(!x||x.pwHash!==await hashPw($("#gl-pw").value))return fail("That email and password don't match. Check them, or reset your password.");
+    sess.set("bx-guest-user",x.id);guestView="list";guestErr="";showSection("guests");toast(`Welcome back, ${x.name.split(" ")[0]}`)};
+  const fo=$("#g-forgot");if(fo)fo.onsubmit=e=>{e.preventDefault();
+    const x=byEmail($("#gf-email").value);if(!x)return fail("We don't have a guest account with that email.");
+    guestOtpFor=x.id;guestOtp=otp();guestView="reset";guestErr="";renderGuests()};
+  const re=$("#g-reset");if(re)re.onsubmit=async e=>{e.preventDefault();
+    if($("#gr-code").value.trim()!==guestOtp)return fail("That code isn't right. Check the 6 digits and try again.");
+    const p=$("#gr-pw").value,m=pwProblem(p,$("#gr-pw2").value);if(m)return fail(m);
+    const x=GUESTS_ACC.find(y=>y.id===guestOtpFor);x.pwHash=await hashPw(p);saveGuests();guestOtp=null;guestView="login";guestErr="";renderGuests();toast("Password changed. Sign in with your new password.")};
+  el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});renderGuests();window.scrollTo(0,0)});
+  $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;renderGuests()});
+  el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{gb.svc=b.dataset.svc;renderGuests()});
+  el.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{gb.day=+b.dataset.day;gb.time=null;renderGuests()});
+  el.querySelectorAll("[data-time]").forEach(b=>b.onclick=()=>{gb.time=b.dataset.time;renderGuests()});
+  $("#gb-confirm")&&($("#gb-confirm").onclick=()=>{const s=salon(gb.salon),v=s.services.find(x=>x.id===gb.svc),d=days()[gb.day];
+    const b={id:"b"+Date.now(),salon:s.id,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,time:gb.time};
+    BOOKINGS.push(b);saveBookings();gb.done=b;renderGuests();window.scrollTo(0,0)});
 }
 
 showSection((location.hash||"#admin").slice(1));

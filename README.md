@@ -5,8 +5,10 @@ Beauty clinic appointment app. This repository holds the first HTML prototype an
 ## App sections
 
 - **Admin**: sign-in and one tab, **Add Salon Details**: salon name, name of the person, WhatsApp number, email (required, used for password OTPs), state, city and PIN code. Saving creates a unique code (for example `BX-7KQ2MP`) and opens WhatsApp with an invite to the owner containing the code, salon name and person's name.
-- **Salon de Beauté**: the owner taps **Create account**, enters the code, checks the details the admin added and sets a password. After that they sign in with their email and password, and can reset it with **Forgot password?** (6-digit code to their email). Once signed in they see their salon's details and today's timeline.
-- **die Gäste**: online booking (treatment → salon → date and time → confirm)
+- **Salon de Beauté**: the owner taps **Create account**, enters the code, checks the details the admin added and sets a password. After that they sign in with their email and password, and can reset it with **Forgot password?** (6-digit code to their email). Signed in, they add their services with prices (for example Facial ₹450), set **Available**, **Busy** or **Not available**, and see guest bookings.
+- **die Gäste**: anyone can see each salon's name and availability; location, WhatsApp, services and prices are masked (`*****`) until the guest creates an account (name, WhatsApp, email, password). Signed-in guests can book a service and time. Guests can reset their password by email code.
+
+WhatsApp numbers always start with a fixed +91 followed by exactly 10 digits. Admin can delete a salon and its owner account.
 
 The Admin tab is locked for salon staff and guests until the admin signs in.
 
@@ -32,5 +34,5 @@ These need a backend before real salons use the app:
 
 - **WhatsApp:** the app opens WhatsApp with the invite filled in, and the admin presses Send. Sending automatically needs the WhatsApp Business API.
 - **Email OTPs:** reset codes are shown on screen instead of being emailed.
-- **Shared data:** salons, codes and passwords are saved in the browser where they were entered. For an owner to create an account on their own phone, the salons have to live in a database.
+- **Shared data:** salons, guests, bookings, codes and passwords are saved in the browser where they were entered. For an owner to create an account on their own phone, the salons have to live in a database.
 
