@@ -1,0 +1,660 @@
+<title>Beautinix</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: dark navy app shell (single deliberate dark theme). Header with brand + role chip, pill switch for the three sections,
+   a highlight "next appointment" card, an icon tab row, then the working area. Phone-first; widens into grids on desktop. */
+:root{
+  color-scheme:dark;
+  --bg:#0A111D; --surface:#111B2B; --surface-2:#172338; --raised:#1D2A42; --line:#25344E; --line-soft:#1C2940;
+  --fg:#EEF2F9; --muted:#8C9BB4; --dim:#61708A;
+  --accent:#F0479A; --accent-ink:#FFFFFF; --accent-soft:rgb(240 71 154 / .14); --accent-line:rgb(240 71 154 / .45);
+  --gold:#F5A524; --gold-soft:rgb(245 165 36 / .14);
+  --ok:#3DD68C; --ok-soft:rgb(61 214 140 / .13); --warn:#F5A524; --warn-soft:rgb(245 165 36 / .14); --bad:#F87171; --bad-soft:rgb(248 113 113 / .14);
+  --logo-word:#F6D3E5; --logo-x:#E77BB3;
+  --sans:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:18px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.45rem}h2{font-size:1.15rem}h3{font-size:1rem}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);letter-spacing:.04em}
+.ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:3px solid var(--line-soft)}
+.top-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:14px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{height:58px;width:auto;display:block}
+.brand-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.chip{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:7px;border:1px solid}
+.chip.live{color:var(--ok);background:var(--ok-soft);border-color:rgb(61 214 140 / .35)}
+.site{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.site .ico{width:14px;height:14px;color:var(--ok)}
+.top-actions{margin-left:auto;display:flex;gap:4px}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:0;background:transparent;color:var(--fg);display:grid;place-items:center}
+.icon-btn:hover{background:var(--surface-2)}
+
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Pill switch (sections) */
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.seg{display:flex;gap:4px;padding:5px;background:var(--surface-2);border:1px solid var(--line);border-radius:16px;max-width:100%;overflow-x:auto}
+.seg button{border:0;background:transparent;color:var(--fg);font-weight:600;padding:9px 18px;border-radius:11px;white-space:nowrap}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.seg button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 14px rgb(240 71 154 / .3)}
+.ghost-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--accent);font-weight:700;padding:10px 16px;border-radius:14px;margin-left:auto}
+.ghost-btn:hover{border-color:var(--accent-line)}
+.top-actions{align-items:center}
+.top-actions .ghost-btn{padding:8px 12px;font-size:13px}
+.contact{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;color:var(--muted)}
+.contact a,.contact span{display:inline-flex;align-items:center;gap:6px;color:var(--fg);text-decoration:none}
+.contact a:hover{color:var(--accent)}
+.req{color:var(--accent)}
+.hint{font-weight:500;color:var(--dim)}
+.field-err{color:var(--bad);font-size:12px;font-weight:600}
+textarea.input{resize:vertical;min-height:90px}
+.new-badge{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);background:var(--ok-soft);border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+
+/* Highlight card */
+.next{display:flex;align-items:center;gap:18px;padding:18px;border-radius:var(--r);border:1px solid var(--line);
+  background:linear-gradient(110deg,var(--raised),var(--surface) 70%);flex-wrap:wrap}
+.next-tile{width:72px;height:72px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;box-shadow:0 6px 20px rgb(240 71 154 / .35);flex:none}
+.next-tile b{font-size:1.7rem;font-weight:800}
+.next-tile small{font-size:12px;font-weight:700;margin-top:3px}
+.next-body{flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.next-body h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.next-body p{color:var(--muted)}
+.next-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.tag{font-weight:700;color:var(--gold);background:var(--gold-soft);border:1px solid rgb(245 165 36 / .4);padding:6px 14px;border-radius:999px;white-space:nowrap}
+.ref{color:var(--muted);font-size:12px}
+
+/* Icon tabs */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-block:4px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding-top:12px;padding-bottom:12px}
+.tabs button{display:inline-flex;align-items:center;gap:8px;border:1px solid transparent;background:transparent;color:var(--muted);font-weight:600;padding:9px 16px;border-radius:14px;white-space:nowrap;position:relative}
+.tabs button:hover{color:var(--fg)}
+.tabs button[aria-current="page"]{background:var(--surface-2);border-color:var(--line);color:var(--accent)}
+.tabs .dot{width:7px;height:7px;border-radius:50%;background:var(--gold)}
+
+/* Panels */
+.pane{display:flex;flex-direction:column;gap:16px;min-width:0}
+.pane-head{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pane-head p{color:var(--muted);margin-top:2px}
+.sample{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px dashed var(--line);border-radius:8px;padding:4px 9px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.panel-head span{color:var(--muted);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi .k{font-size:12px;color:var(--muted);font-weight:600}
+.kpi .v{font-size:1.6rem;font-weight:800}
+.kpi .d{font-size:12px;font-weight:700}
+.up{color:var(--ok)}.down{color:var(--gold)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.chart svg{width:100%;height:auto;display:block}
+.list{display:flex;flex-direction:column}
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.list-item:first-child{border-top:0}
+.list-item .sub{color:var(--muted);font-size:12px}
+
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{width:100%;border-collapse:collapse;min-width:660px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td .sub{display:block;font-size:12px;color:var(--muted)}
+.right{text-align:right}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.s-confirmed{background:var(--ok-soft);color:var(--ok)}
+.s-pending{background:var(--warn-soft);color:var(--warn)}
+.s-cancelled{background:var(--bad-soft);color:var(--bad)}
+.s-checkedin{background:var(--accent-soft);color:var(--accent)}
+
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0;width:100%}
+.tools .input{width:auto}
+.input:focus{border-color:var(--accent-line);outline:none}
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:9px 16px;font-weight:700}
+.btn:hover{border-color:var(--accent-line)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:5px 11px;font-size:12px;border-radius:10px}
+.btn.block{width:100%;padding:12px}
+.link{background:none;border:0;color:var(--accent);font-weight:700;padding:0}
+.row-actions{display:flex;gap:6px;justify-content:flex-end}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
+.card .meta dt{color:var(--muted)}.card .meta dd{margin:0}
+.bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--gold))}
+.toggle{position:relative;width:40px;height:24px;border-radius:99px;border:0;background:var(--line);padding:0}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+.toggle[aria-checked="true"]{background:var(--accent)}
+.toggle[aria-checked="true"]::after{left:19px}
+.tier{font-size:12px;font-weight:800;color:var(--gold)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-weight:700}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--raised);border:1px solid var(--line);color:var(--fg);padding:10px 18px;border-radius:999px;font-weight:700;z-index:20;box-shadow:0 10px 30px rgb(0 0 0 / .4)}
+
+/* Login */
+.auth{max-width:420px;width:100%;margin:12px auto;display:flex;flex-direction:column;gap:16px}
+.auth .panel{padding:22px;gap:14px}
+.auth .logo{height:120px;margin:0 auto}
+.auth-head{text-align:center;display:flex;flex-direction:column;gap:4px}
+.auth-head p{color:var(--muted)}
+.pw{position:relative}
+.pw .input{padding-right:64px}
+.pw button{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);font-size:12px;font-weight:700}
+.err{color:var(--bad);font-size:13px;font-weight:600}
+.note{background:var(--gold-soft);border:1px solid rgb(245 165 36 / .35);color:var(--gold);border-radius:var(--r-sm);padding:10px 12px;font-size:13px}
+.note b{font-family:var(--mono);letter-spacing:.2em}
+
+/* Salon timeline */
+.timeline{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);background-size:24px 24px}
+.tl{display:grid;min-width:760px;position:relative}
+.tl .hcell{padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);font-weight:700}
+.tl .hcell small{display:block;font-weight:500;color:var(--muted)}
+.tl .hours{border-right:1px solid var(--line);background:var(--surface)}
+.tl .hour{height:60px;font-size:12px;color:var(--dim);padding:2px 8px;border-bottom:1px dashed var(--line);font-family:var(--mono)}
+.tl .col{position:relative;border-right:1px solid var(--line-soft)}
+.appt{position:absolute;left:6px;right:6px;border-radius:10px;padding:6px 9px;font-size:12px;overflow:hidden;text-align:left;border:1px solid var(--accent-line);background:rgb(240 71 154 / .16);color:var(--fg)}
+.appt b{display:block}
+.appt span{color:var(--muted)}
+.appt.checkedin{background:var(--ok-soft);border-color:rgb(61 214 140 / .45)}
+.appt.pending{background:var(--warn-soft);border-color:rgb(245 165 36 / .45)}
+.now{position:absolute;left:64px;right:0;height:2px;background:var(--gold);z-index:2;box-shadow:0 0 10px var(--gold)}
+
+/* Guests */
+.guest{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps span{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.steps span.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.steps span.done{color:var(--accent);border-color:var(--accent-line)}
+.choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.choice{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:4px}
+.choice:hover{border-color:var(--accent-line)}
+.choice[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.choice span{color:var(--muted);font-size:13px}
+.choice .price{color:var(--gold);font-weight:800}
+.days{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.day{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:8px 12px;text-align:center;min-width:62px}
+.day small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.day[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.day[aria-pressed="true"] small{color:var(--accent-ink)}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.slot{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px;font-family:var(--mono)}
+.slot[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.slot:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+.summary dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0}
+.summary dt{color:var(--muted)}.summary dd{margin:0;font-weight:700}
+.nav{display:flex;justify-content:space-between;gap:8px}
+.ok-box{background:var(--ok-soft);border:1px solid rgb(61 214 140 / .35);color:var(--ok);border-radius:var(--r);padding:16px;font-weight:700}
+
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .logo{height:46px}
+  .site{display:none}
+  .seg{width:100%}.seg button{flex:1;padding:9px 10px}
+  .ghost-btn{margin-left:0}
+  .next-side{flex-direction:row;align-items:center;width:100%;justify-content:space-between}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.5 3.6 5.2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 21h4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
+<header class="top"><div class="top-in">
+  <div class="brand">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="60 64 284 272" class="logo" role="img" aria-label="Beautinix" ><defs>
+    <linearGradient id="mag" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F0479A"></stop><stop offset=".55" stop-color="#B8237A"></stop><stop offset="1" stop-color="#6E1552"></stop>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3CD7A"></stop><stop offset="1" stop-color="#C08A2E"></stop></linearGradient><linearGradient id="rose" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F7A8C4"></stop><stop offset="1" stop-color="#D9488C"></stop></linearGradient><linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2F8F4E"></stop><stop offset="1" stop-color="#7DC86A"></stop>
+    </linearGradient>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="400"><rect width="400" height="400" fill="#fff"></rect><path d="M258.9 184.45V187.60000000000002Q255.9 187.60000000000002 254.47500000000002 188.95000000000002Q253.05 190.3 254.55 192.7L294.0 251.35Q295.8 254.05 297.82500000000005 256.225Q299.85 258.4 302.4 258.85V262.0Q300.15 261.85 295.575 261.625Q291.0 261.4 286.35 261.4Q280.95 261.4 275.25 261.625Q269.55 261.85 266.85 262.0V258.85Q269.85 258.85 271.275 257.5Q272.7 256.15 271.2 253.75L231.75 195.10000000000002Q229.2 191.35000000000002 227.475 189.625Q225.75 187.9 223.35 187.60000000000002V184.45Q225.9 184.60000000000002 231.0 184.82500000000002Q236.1 185.05 241.2 185.05Q246.15 185.05 251.25 184.82500000000002Q256.35 184.60000000000002 258.9 184.45ZM255.45 225.85Q255.45 225.85 255.675 226.75Q255.9 227.65 256.125 228.55Q256.35 229.45 256.35 229.45L250.35 237.1Q245.85 242.95 245.39999999999998 247.825Q244.95 252.7 247.95 255.625Q250.95 258.55 256.2 259.0V262.0Q253.35 261.85 249.225 261.775Q245.1 261.7 241.2 261.625Q237.3 261.55 234.6 261.55Q231.3 261.55 228.825 261.625Q226.35 261.7 224.1 262.0V259.0Q227.55 257.65 230.7 255.02499999999998Q233.85 252.4 237.75 247.45ZM298.05 184.45V187.45Q294.9 188.35000000000002 291.45 191.35000000000002Q288.0 194.35000000000002 284.25 199.0L267.75 219.7Q267.75 219.7 267.525 218.875Q267.3 218.05 267.07500000000005 217.15Q266.85 216.25 266.85 216.25L274.35 206.2Q278.4 200.95 279.29999999999995 196.9Q280.2 192.85000000000002 278.025 190.3Q275.85 187.75 270.45 187.45V184.45Q274.8 184.60000000000002 279.3 184.75Q283.8 184.9 287.4 184.9Q290.85 184.9 293.4 184.75Q295.95 184.60000000000002 298.05 184.45Z" fill="#000" stroke="#000" stroke-width="10" stroke-linejoin="round"></path></mask>
+  </defs><g id="mark" transform="translate(-43.496 -22.733) scale(1.07487)"><path d="M100.5 85.0Q107.0 85.25 117.5 85.5Q128.0 85.75 138.5 85.75Q150.5 85.75 161.75 85.5Q173.0 85.25 177.75 85.25Q208.75 85.25 224.125 96.25Q239.5 107.25 239.5 124.5Q239.5 133.25 234.25 142.25Q229.0 151.25 218.0 158.25Q207.0 165.25 189.5 168.5V169.0Q213.0 170.75 226.75 177.5Q240.5 184.25 246.5 193.75Q252.5 203.25 252.5 213.5Q252.5 229.25 244.25 240.0Q236.0 250.75 220.5 256.375Q205.0 262.0 183.5 262.0Q177.5 262.0 166.25 261.625Q155.0 261.25 139.0 261.25Q128.0 261.25 117.5 261.375Q107.0 261.5 100.5 262.0V257.0Q108.5 256.5 112.5 255.0Q116.5 253.5 117.875 249.0Q119.25 244.5 119.25 235.5V111.5Q119.25 102.25 117.875 97.875Q116.5 93.5 112.375 91.875Q108.25 90.25 100.5 90.0ZM174.5 90.0Q164.75 90.0 161.875 94.25Q159.0 98.5 159.0 111.5V235.5Q159.0 244.25 160.375 248.75Q161.75 253.25 165.375 254.75Q169.0 256.25 176.25 256.25Q194.25 256.25 202.625 244.875Q211.0 233.5 211.0 212.5Q211.0 193.25 201.375 182.75Q191.75 172.25 169.5 172.25H148.25Q148.25 172.25 148.25 170.125Q148.25 168.0 148.25 168.0H169.75Q181.5 168.0 187.75 162.375Q194.0 156.75 196.5 147.375Q199.0 138.0 199.0 127.25Q199.0 108.75 193.25 99.375Q187.5 90.0 174.5 90.0Z" fill="url(#mag)" mask="url(#cut)"></path><path d="M258.9 184.45V187.60000000000002Q255.9 187.60000000000002 254.47500000000002 188.95000000000002Q253.05 190.3 254.55 192.7L294.0 251.35Q295.8 254.05 297.82500000000005 256.225Q299.85 258.4 302.4 258.85V262.0Q300.15 261.85 295.575 261.625Q291.0 261.4 286.35 261.4Q280.95 261.4 275.25 261.625Q269.55 261.85 266.85 262.0V258.85Q269.85 258.85 271.275 257.5Q272.7 256.15 271.2 253.75L231.75 195.10000000000002Q229.2 191.35000000000002 227.475 189.625Q225.75 187.9 223.35 187.60000000000002V184.45Q225.9 184.60000000000002 231.0 184.82500000000002Q236.1 185.05 241.2 185.05Q246.15 185.05 251.25 184.82500000000002Q256.35 184.60000000000002 258.9 184.45ZM255.45 225.85Q255.45 225.85 255.675 226.75Q255.9 227.65 256.125 228.55Q256.35 229.45 256.35 229.45L250.35 237.1Q245.85 242.95 245.39999999999998 247.825Q244.95 252.7 247.95 255.625Q250.95 258.55 256.2 259.0V262.0Q253.35 261.85 249.225 261.775Q245.1 261.7 241.2 261.625Q237.3 261.55 234.6 261.55Q231.3 261.55 228.825 261.625Q226.35 261.7 224.1 262.0V259.0Q227.55 257.65 230.7 255.02499999999998Q233.85 252.4 237.75 247.45ZM298.05 184.45V187.45Q294.9 188.35000000000002 291.45 191.35000000000002Q288.0 194.35000000000002 284.25 199.0L267.75 219.7Q267.75 219.7 267.525 218.875Q267.3 218.05 267.07500000000005 217.15Q266.85 216.25 266.85 216.25L274.35 206.2Q278.4 200.95 279.29999999999995 196.9Q280.2 192.85000000000002 278.025 190.3Q275.85 187.75 270.45 187.45V184.45Q274.8 184.60000000000002 279.3 184.75Q283.8 184.9 287.4 184.9Q290.85 184.9 293.4 184.75Q295.95 184.60000000000002 298.05 184.45Z" style="fill:var(--logo-x)"></path><g transform="translate(286 104)">
+  <defs>
+    <linearGradient id="calbody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#FCE4EE"></stop></linearGradient>
+    <linearGradient id="calhead" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E23D8E"></stop><stop offset="1" stop-color="#8E1C63"></stop></linearGradient>
+    <linearGradient id="heart" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7FB0"></stop><stop offset="1" stop-color="#C21F6E"></stop></linearGradient>
+  </defs>
+  <rect x="0" y="8" width="62" height="58" rx="11" fill="url(#calbody)" stroke="url(#calhead)" stroke-width="2.5"></rect>
+  <path d="M0 19 A11 11 0 0 1 11 8 H51 A11 11 0 0 1 62 19 V23 H0Z" fill="url(#calhead)"></path>
+  <circle cx="17" cy="15.5" r="2.4" fill="#FCE4EE"></circle><circle cx="45" cy="15.5" r="2.4" fill="#FCE4EE"></circle>
+  <rect x="14.5" y="0" width="5" height="16" rx="2.5" fill="#6E1552"></rect><rect x="42.5" y="0" width="5" height="16" rx="2.5" fill="#6E1552"></rect>
+  <rect x="8" y="30" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="18" y="30" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="28" y="30" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="38" y="30" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="48" y="30" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="8" y="39" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="18" y="39" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="28" y="39" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="38" y="39" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="48" y="39" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="8" y="48" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="18" y="48" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect><rect x="28" y="48" width="6" height="5" rx="1.6" fill="#F2B6CD"></rect>
+  <g transform="translate(48 54)">
+    <path d="M0 16 C -22 3 -24 -9 -16 -14 C -9 -18 -2 -14 0 -8 C 2 -14 9 -18 16 -14 C 24 -9 22 3 0 16Z" fill="url(#heart)" stroke="#FFFFFF" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke"></path>
+  </g>
+  
+</g></g><path d="M64.52900000000002 308.104Q65.95500000000001 308.166 68.21800000000002 308.228Q70.48100000000002 308.29 72.71300000000002 308.29Q75.68900000000002 308.29 78.38600000000002 308.228Q81.08300000000003 308.166 82.19900000000001 308.166Q89.14300000000001 308.166 92.58400000000002 310.894Q96.02500000000002 313.622 96.02500000000002 317.9Q96.02500000000002 320.07 95.00200000000001 322.209Q93.97900000000001 324.348 91.68500000000002 326.053Q89.39100000000002 327.758 85.60900000000002 328.75V328.874Q90.81700000000002 329.432 93.79300000000002 331.106Q96.76900000000002 332.78 98.00900000000001 335.105Q99.24900000000002 337.43 99.24900000000002 339.972Q99.24900000000002 343.63 97.38900000000002 346.327Q95.52900000000002 349.024 92.02600000000002 350.512Q88.52300000000002 352.0 83.62500000000001 352.0Q82.26100000000002 352.0 79.50200000000002 351.90700000000004Q76.74300000000002 351.814 72.83700000000002 351.814Q70.48100000000002 351.814 68.21800000000002 351.845Q65.95500000000001 351.876 64.52900000000002 352.0V350.76Q66.63700000000001 350.636 67.69100000000002 350.264Q68.74500000000002 349.892 69.08600000000001 348.776Q69.42700000000002 347.66 69.42700000000002 345.428V314.676Q69.42700000000002 312.382 69.08600000000001 311.297Q68.74500000000002 310.212 67.66000000000003 309.80899999999997Q66.57500000000002 309.406 64.52900000000002 309.344ZM80.89700000000002 309.344Q78.23100000000002 309.344 77.39400000000002 310.398Q76.55700000000002 311.452 76.55700000000002 314.676V345.428Q76.55700000000002 347.598 76.92900000000002 348.714Q77.30100000000002 349.83 78.26200000000001 350.202Q79.22300000000001 350.574 81.08300000000003 350.574Q86.66300000000001 350.574 89.174 347.75300000000004Q91.68500000000002 344.932 91.68500000000002 339.724Q91.68500000000002 334.95 89.174 332.346Q86.66300000000001 329.742 80.89700000000002 329.742H74.88300000000002Q74.88300000000002 329.742 74.88300000000002 329.21500000000003Q74.88300000000002 328.688 74.88300000000002 328.688H80.21500000000002Q83.62500000000001 328.688 85.48500000000001 327.293Q87.34500000000001 325.898 88.02700000000002 323.573Q88.70900000000002 321.248 88.70900000000002 318.582Q88.70900000000002 313.994 86.91100000000002 311.669Q85.11300000000001 309.344 80.89700000000002 309.344ZM119.77900000000001 319.14Q125.23500000000001 319.14 128.335 322.426Q131.435 325.712 131.435 332.842H110.04500000000002L109.92100000000002 331.664H124.86300000000001Q124.92500000000001 328.626 124.36700000000002 326.053Q123.80900000000001 323.48 122.63100000000001 321.93Q121.45300000000002 320.38 119.531 320.38Q116.86500000000001 320.38 114.912 323.201Q112.95900000000002 326.022 112.525 332.222L112.71100000000001 332.532Q112.64900000000002 333.4 112.58700000000002 334.423Q112.525 335.446 112.525 336.438Q112.525 340.716 113.82700000000001 343.63Q115.12900000000002 346.544 117.23700000000002 348.001Q119.34500000000001 349.458 121.51500000000001 349.458Q123.18900000000002 349.458 124.77000000000001 348.93100000000004Q126.35100000000001 348.404 127.77700000000002 347.13300000000004Q129.203 345.862 130.31900000000002 343.63L131.55900000000003 344.126Q130.815 346.234 129.26500000000001 348.28Q127.71500000000002 350.326 125.29700000000003 351.597Q122.87900000000002 352.868 119.65500000000002 352.868Q115.31500000000001 352.868 112.09100000000001 350.91499999999996Q108.86700000000002 348.962 107.13100000000001 345.304Q105.39500000000001 341.646 105.39500000000001 336.624Q105.39500000000001 331.106 107.19300000000001 327.2Q108.99100000000001 323.294 112.24600000000001 321.217Q115.50100000000002 319.14 119.77900000000001 319.14ZM145.455 352.434Q142.85100000000003 352.434 140.99100000000004 351.442Q139.13100000000003 350.45 138.20100000000002 348.714Q137.27100000000002 346.978 137.27100000000002 344.746Q137.27100000000002 342.01800000000003 138.51100000000002 340.313Q139.751 338.608 141.704 337.554Q143.657 336.5 145.858 335.78700000000003Q148.05900000000003 335.074 150.012 334.423Q151.965 333.772 153.236 332.904Q154.507 332.036 154.507 330.61V326.394Q154.507 324.162 153.794 322.82899999999995Q153.08100000000002 321.496 151.872 320.938Q150.663 320.38 148.989 320.38Q147.56300000000002 320.38 145.95100000000002 320.783Q144.33900000000003 321.186 143.40900000000002 322.364Q144.77300000000002 322.736 145.67200000000003 323.821Q146.57100000000003 324.906 146.57100000000003 326.51800000000003Q146.57100000000003 328.254 145.42400000000004 329.246Q144.27700000000002 330.238 142.54100000000003 330.238Q140.61900000000003 330.238 139.68900000000002 329.029Q138.75900000000001 327.82 138.75900000000001 326.20799999999997Q138.75900000000001 324.534 139.596 323.48Q140.43300000000002 322.426 141.79700000000003 321.496Q143.28500000000003 320.504 145.61 319.822Q147.935 319.14 150.787 319.14Q153.45300000000003 319.14 155.406 319.729Q157.359 320.318 158.661 321.62Q160.211 323.046 160.70700000000002 325.185Q161.20300000000003 327.324 161.20300000000003 330.362V347.474Q161.20300000000003 349.024 161.60600000000002 349.675Q162.00900000000001 350.326 162.93900000000002 350.326Q163.55900000000003 350.326 164.14800000000002 350.016Q164.73700000000002 349.706 165.543 349.086L166.163 350.14Q164.86100000000002 351.194 163.52800000000002 351.814Q162.19500000000002 352.434 160.149 352.434Q158.16500000000002 352.434 156.925 351.814Q155.685 351.194 155.096 350.016Q154.507 348.838 154.507 347.102Q152.895 349.706 150.663 351.07000000000005Q148.431 352.434 145.455 352.434ZM148.431 349.458Q150.16700000000003 349.458 151.68600000000004 348.466Q153.205 347.474 154.507 345.49V333.152Q153.82500000000002 334.144 152.52300000000002 334.85699999999997Q151.221 335.57 149.733 336.31399999999996Q148.245 337.058 146.912 338.019Q145.579 338.98 144.711 340.468Q143.84300000000002 341.956 143.84300000000002 344.25Q143.84300000000002 346.668 145.08300000000003 348.063Q146.323 349.458 148.431 349.458ZM198.10100000000003 319.326V345.304Q198.10100000000003 348.094 199.062 349.427Q200.02300000000002 350.76 202.56500000000003 350.76V352.062Q200.64300000000003 351.876 198.721 351.876Q196.675 351.876 194.815 352.062Q192.955 352.248 191.40500000000003 352.744V345.986Q189.85500000000002 349.706 187.096 351.28700000000003Q184.33700000000002 352.868 181.299 352.868Q179.00500000000002 352.868 177.39300000000003 352.217Q175.781 351.566 174.72700000000003 350.512Q173.61100000000002 349.272 173.17700000000002 347.31899999999996Q172.74300000000002 345.366 172.74300000000002 342.39V326.766Q172.74300000000002 323.976 171.81300000000002 322.64300000000003Q170.883 321.31 168.27900000000002 321.31V320.008Q170.263 320.194 172.12300000000002 320.194Q174.169 320.194 176.029 319.977Q177.889 319.76 179.43900000000002 319.326V344.126Q179.43900000000002 345.924 179.687 347.412Q179.93500000000003 348.9 180.865 349.76800000000003Q181.79500000000002 350.636 183.841 350.636Q186.01100000000002 350.636 187.716 349.334Q189.42100000000002 348.032 190.413 345.79999999999995Q191.40500000000003 343.568 191.40500000000003 340.778V326.766Q191.40500000000003 323.976 190.47500000000002 322.64300000000003Q189.54500000000002 321.31 186.94100000000003 321.31V320.008Q188.925 320.194 190.78500000000003 320.194Q192.83100000000002 320.194 194.69100000000003 319.977Q196.55100000000002 319.76 198.10100000000003 319.326ZM217.39100000000002 309.778V320.07H225.947V321.31H217.39100000000002V345.676Q217.39100000000002 348.218 218.32100000000003 349.27200000000005Q219.25100000000003 350.326 220.98700000000002 350.326Q222.59900000000002 350.326 223.87 349.024Q225.14100000000002 347.722 226.07100000000003 344.622L227.24900000000002 345.056Q226.50500000000002 348.342 224.61400000000003 350.605Q222.723 352.868 219.06500000000003 352.868Q216.95700000000002 352.868 215.531 352.341Q214.10500000000002 351.814 213.05100000000002 350.822Q211.687 349.396 211.19100000000003 347.41200000000003Q210.69500000000002 345.428 210.69500000000002 342.142V321.31H204.991V320.07H210.69500000000002V311.01800000000003Q212.61700000000002 310.956 214.29100000000003 310.677Q215.96500000000003 310.398 217.39100000000002 309.778ZM236.86700000000002 304.384Q238.78900000000002 304.384 240.091 305.593Q241.393 306.802 241.393 308.6Q241.393 310.398 240.091 311.607Q238.78900000000002 312.81600000000003 236.86700000000002 312.81600000000003Q234.94500000000002 312.81600000000003 233.64300000000003 311.607Q232.341 310.398 232.341 308.6Q232.341 306.802 233.64300000000003 305.593Q234.94500000000002 304.384 236.86700000000002 304.384ZM240.58700000000002 319.326V346.234Q240.58700000000002 348.838 241.61 349.76800000000003Q242.633 350.698 245.05100000000002 350.698V352.0Q243.997 351.938 241.79600000000002 351.845Q239.59500000000003 351.752 237.30100000000002 351.752Q235.13100000000003 351.752 232.83700000000002 351.845Q230.543 351.938 229.42700000000002 352.0V350.698Q231.84500000000003 350.698 232.86800000000002 349.76800000000003Q233.89100000000002 348.838 233.89100000000002 346.234V326.766Q233.89100000000002 323.976 232.961 322.64300000000003Q232.031 321.31 229.42700000000002 321.31V320.008Q231.411 320.194 233.27100000000002 320.194Q235.37900000000002 320.194 237.20800000000003 319.977Q239.037 319.76 240.58700000000002 319.326ZM270.603 319.14Q273.083 319.14 274.664 319.791Q276.245 320.442 277.29900000000004 321.558Q278.415 322.736 278.88 324.596Q279.345 326.456 279.345 329.618V346.234Q279.345 348.838 280.36800000000005 349.76800000000003Q281.391 350.698 283.809 350.698V352.0Q282.755 351.938 280.523 351.845Q278.291 351.752 276.121 351.752Q274.01300000000003 351.752 271.93600000000004 351.845Q269.85900000000004 351.938 268.805 352.0V350.698Q270.913 350.698 271.781 349.76800000000003Q272.649 348.838 272.649 346.234V327.882Q272.649 326.084 272.339 324.627Q272.029 323.17 271.03700000000003 322.271Q270.045 321.372 268.06100000000004 321.372Q265.767 321.372 264.0 322.674Q262.233 323.976 261.21000000000004 326.23900000000003Q260.187 328.502 260.187 331.29200000000003V346.234Q260.187 348.838 261.086 349.76800000000003Q261.985 350.698 264.031 350.698V352.0Q263.039 351.938 261.024 351.845Q259.009 351.752 256.839 351.752Q254.731 351.752 252.437 351.845Q250.143 351.938 249.02700000000002 352.0V350.698Q251.44500000000002 350.698 252.46800000000002 349.76800000000003Q253.491 348.838 253.491 346.234V326.766Q253.491 323.976 252.561 322.64300000000003Q251.631 321.31 249.02700000000002 321.31V320.008Q251.011 320.194 252.871 320.194Q254.979 320.194 256.808 319.977Q258.637 319.76 260.187 319.326V326.084Q261.79900000000004 322.24 264.62 320.69Q267.44100000000003 319.14 270.603 319.14ZM294.853 304.384Q296.77500000000003 304.384 298.077 305.593Q299.379 306.802 299.379 308.6Q299.379 310.398 298.077 311.607Q296.77500000000003 312.81600000000003 294.853 312.81600000000003Q292.93100000000004 312.81600000000003 291.629 311.607Q290.32700000000006 310.398 290.32700000000006 308.6Q290.32700000000006 306.802 291.629 305.593Q292.93100000000004 304.384 294.853 304.384ZM298.57300000000004 319.326V346.234Q298.57300000000004 348.838 299.596 349.76800000000003Q300.619 350.698 303.03700000000003 350.698V352.0Q301.98300000000006 351.938 299.78200000000004 351.845Q297.581 351.752 295.28700000000003 351.752Q293.117 351.752 290.82300000000004 351.845Q288.52900000000005 351.938 287.413 352.0V350.698Q289.831 350.698 290.85400000000004 349.76800000000003Q291.877 348.838 291.877 346.234V326.766Q291.877 323.976 290.947 322.64300000000003Q290.01700000000005 321.31 287.413 321.31V320.008Q289.39700000000005 320.194 291.257 320.194Q293.365 320.194 295.194 319.977Q297.023 319.76 298.57300000000004 319.326ZM319.1650000000001 320.008V321.31Q317.9870000000001 321.31 317.24300000000005 321.868Q316.4990000000001 322.426 317.119 323.418L333.61100000000005 347.598Q334.54100000000005 349.024 335.37800000000004 349.73699999999997Q336.21500000000003 350.45 337.3310000000001 350.698V352.0Q336.58700000000005 351.938 335.13000000000005 351.845Q333.67300000000006 351.752 332.18500000000006 351.752Q330.13900000000007 351.752 327.90700000000004 351.845Q325.67500000000007 351.938 324.62100000000004 352.0V350.698Q325.86100000000005 350.698 326.605 350.109Q327.34900000000005 349.52 326.66700000000003 348.59L310.17500000000007 324.41Q308.99700000000007 322.736 308.2840000000001 322.08500000000004Q307.5710000000001 321.434 306.45500000000004 321.31V320.008Q307.2610000000001 320.07 308.81100000000004 320.163Q310.36100000000005 320.256 311.84900000000005 320.256Q313.89500000000004 320.256 316.03400000000005 320.163Q318.17300000000006 320.07 319.1650000000001 320.008ZM319.84700000000004 336.252Q319.84700000000004 336.252 319.94000000000005 336.624Q320.0330000000001 336.996 320.1880000000001 337.42999999999995Q320.3430000000001 337.864 320.3430000000001 337.864L316.06500000000005 343.382Q314.3910000000001 345.552 314.26700000000005 347.19500000000005Q314.14300000000003 348.838 315.38300000000004 349.706Q316.62300000000005 350.574 318.79300000000006 350.76V352.0Q317.6770000000001 351.938 316.2510000000001 351.907Q314.82500000000005 351.876 313.461 351.845Q312.09700000000004 351.814 311.1050000000001 351.814Q309.67900000000003 351.814 308.56300000000005 351.845Q307.44700000000006 351.876 306.51700000000005 352.0V350.76Q307.75700000000006 350.512 309.028 349.48900000000003Q310.29900000000004 348.466 312.0350000000001 346.296ZM335.90500000000003 320.008V321.248Q334.6650000000001 321.496 333.2700000000001 322.61199999999997Q331.87500000000006 323.728 330.38700000000006 325.774L323.3190000000001 335.198Q323.3190000000001 335.198 323.22600000000006 334.79499999999996Q323.13300000000004 334.392 323.009 334.02Q322.88500000000005 333.648 322.88500000000005 333.648L327.16300000000007 327.758Q328.58900000000006 325.712 328.96100000000007 324.34799999999996Q329.3330000000001 322.984 328.52700000000004 322.178Q327.72100000000006 321.372 325.48900000000003 321.248V320.008Q327.16300000000007 320.07 328.4960000000001 320.132Q329.82900000000006 320.194 331.31700000000006 320.194Q332.74300000000005 320.194 333.85900000000004 320.132Q334.9750000000001 320.07 335.90500000000003 320.008Z" style="fill:var(--logo-word)" transform="translate(0 -21.500)"></path></svg>
+    <div class="brand-meta"><span class="chip live" id="role-chip">Admin</span><span class="site"><svg class="ico"><use href="#i-shield"/></svg>app.beautinix.de</span></div>
+  </div>
+  <div class="top-actions">
+    <button class="icon-btn" id="refresh" aria-label="Refresh"><svg class="ico"><use href="#i-refresh"/></svg></button>
+    <button class="ghost-btn" id="signin" hidden><svg class="ico"><use href="#i-lock"/></svg>Admin sign-in</button>
+    <button class="icon-btn" id="logout" aria-label="Sign out" hidden><svg class="ico"><use href="#i-logout"/></svg></button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="row">
+    <div class="seg" role="tablist" aria-label="App section">
+      <button role="tab" id="tab-admin" data-sec="admin"><svg class="ico lock-ico" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" hidden><use href="#i-lock"/></svg>Admin</button>
+      <button role="tab" id="tab-salon" data-sec="salon">Salon de Beauté</button>
+      <button role="tab" id="tab-guests" data-sec="guests">die Gäste</button>
+    </div>
+  </div>
+  <section id="sec-admin" class="pane" hidden></section>
+  <section id="sec-salon" class="pane" hidden></section>
+  <section id="sec-guests" class="pane" hidden></section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ---------- Sample data (examples only) ----------
+const SALONS=[
+  {id:"ber",name:"Beautinix Berlin Mitte",city:"Berlin",addr:"Torstraße 112, 10119 Berlin",chairs:8,hours:"Mon–Sat 09:00–20:00",rating:4.8,util:82,person:"Lena Hoffmann",wa:"+91 98201 44567",email:"berlin@beautinix.de",desc:"Flagship salon with hair, skin and nail studios."},
+  {id:"muc",name:"Beautinix München Schwabing",city:"München",addr:"Leopoldstraße 41, 80802 München",chairs:6,hours:"Mon–Sat 09:00–19:00",rating:4.7,util:74,person:"Jonas Becker",wa:"+91 99300 21876",email:"",desc:""},
+  {id:"ham",name:"Beautinix Hamburg Eppendorf",city:"Hamburg",addr:"Eppendorfer Weg 210, 20251 Hamburg",chairs:5,hours:"Tue–Sat 10:00–19:00",rating:4.9,util:69,person:"Claire Dubois",wa:"+91 98450 77310",email:"hamburg@beautinix.de",desc:"Skin clinic and colour studio."},
+];
+const STAFF=[
+  {id:1,name:"Lena Hoffmann",role:"Senior stylist",salon:"ber",skills:["Cut","Balayage"],today:7},
+  {id:2,name:"Amira Haddad",role:"Aesthetician",salon:"ber",skills:["Facial","Microneedling"],today:5},
+  {id:3,name:"Sofia Rossi",role:"Nail artist",salon:"ber",skills:["Gel","Nail art"],today:6},
+  {id:4,name:"Jonas Becker",role:"Barber",salon:"muc",skills:["Cut","Beard"],today:8},
+  {id:5,name:"Mei Tanaka",role:"Lash & brow artist",salon:"muc",skills:["Lash lift","Brows"],today:4},
+  {id:6,name:"Claire Dubois",role:"Aesthetician",salon:"ham",skills:["Facial","Peel"],today:5},
+  {id:7,name:"Elif Yılmaz",role:"Stylist",salon:"ham",skills:["Colour","Blow-dry"],today:6},
+];
+const SERVICES=[
+  {id:"cut",name:"Cut & blow-dry",cat:"Hair",min:60,price:800,active:true},
+  {id:"bal",name:"Balayage",cat:"Hair",min:150,price:4500,active:true},
+  {id:"fac",name:"Hydra facial",cat:"Skin",min:60,price:2500,active:true},
+  {id:"mic",name:"Microneedling",cat:"Skin",min:75,price:5000,active:true},
+  {id:"gel",name:"Gel manicure",cat:"Nails",min:45,price:1200,active:true},
+  {id:"lash",name:"Lash lift & tint",cat:"Lashes & brows",min:50,price:1800,active:true},
+  {id:"brow",name:"Brow lamination",cat:"Lashes & brows",min:40,price:1500,active:false},
+  {id:"beard",name:"Beard trim",cat:"Hair",min:30,price:350,active:true},
+];
+const GUESTS=[
+  {name:"Hannah Schulz",phone:"+49 151 2345 6789",visits:14,last:"18 Oct",tier:"Gold",spend:28400},
+  {name:"Marco Bianchi",phone:"+49 160 9876 5432",visits:3,last:"22 Oct",tier:"—",spend:3150},
+  {name:"Aylin Demir",phone:"+49 172 1122 3344",visits:9,last:"11 Oct",tier:"Silver",spend:16800},
+  {name:"Julia Wagner",phone:"+49 176 5566 7788",visits:21,last:"24 Oct",tier:"Gold",spend:52600},
+  {name:"Noah Fischer",phone:"+49 157 3344 5566",visits:1,last:"25 Oct",tier:"New",spend:800},
+  {name:"Priya Nair",phone:"+49 159 8899 0011",visits:6,last:"15 Oct",tier:"Silver",spend:11200},
+];
+let APPTS=[
+  {id:101,time:"09:00",guest:"Julia Wagner",svc:"bal",staff:1,salon:"ber",status:"checkedin"},
+  {id:102,time:"09:30",guest:"Hannah Schulz",svc:"fac",staff:2,salon:"ber",status:"checkedin"},
+  {id:103,time:"10:00",guest:"Aylin Demir",svc:"gel",staff:3,salon:"ber",status:"confirmed"},
+  {id:104,time:"11:00",guest:"Noah Fischer",svc:"cut",staff:4,salon:"muc",status:"confirmed"},
+  {id:105,time:"11:30",guest:"Priya Nair",svc:"lash",staff:5,salon:"muc",status:"pending"},
+  {id:106,time:"12:00",guest:"Marco Bianchi",svc:"beard",staff:4,salon:"muc",status:"confirmed"},
+  {id:107,time:"13:00",guest:"Lea Neumann",svc:"mic",staff:2,salon:"ber",status:"pending"},
+  {id:108,time:"14:00",guest:"Tom Richter",svc:"cut",staff:1,salon:"ber",status:"confirmed"},
+  {id:109,time:"14:30",guest:"Sara Lindqvist",svc:"fac",staff:6,salon:"ham",status:"confirmed"},
+  {id:110,time:"15:00",guest:"Emma Koch",svc:"gel",staff:3,salon:"ber",status:"cancelled"},
+  {id:111,time:"16:00",guest:"Mila Braun",svc:"cut",staff:7,salon:"ham",status:"confirmed"},
+  {id:112,time:"17:00",guest:"Ben Wolf",svc:"cut",staff:1,salon:"ber",status:"pending"},
+];
+const WEEK=[{d:"Mon",n:38},{d:"Tue",n:44},{d:"Wed",n:41},{d:"Thu",n:52},{d:"Fri",n:61},{d:"Sat",n:70},{d:"Sun",n:48}];
+const NOW="12:40";
+const ADDED_KEY="bx-salons-added";
+try{JSON.parse(localStorage.getItem(ADDED_KEY)||"[]").forEach(x=>SALONS.push(x))}catch(e){}
+const saveAdded=()=>{try{localStorage.setItem(ADDED_KEY,JSON.stringify(SALONS.filter(x=>x.added)))}catch(e){}}; // demo clock: Saturday 25 October
+
+// ---------- Helpers ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>"₹"+n.toLocaleString("en-IN");
+const svc=id=>SERVICES.find(s=>s.id===id);
+const staff=id=>STAFF.find(s=>s.id===id);
+const salon=id=>SALONS.find(s=>s.id===id);
+const place=s=>s.city||s.name;
+const mins=t=>{const[h,m]=t.split(":").map(Number);return h*60+m};
+const icon=n=>`<svg class="ico"><use href="#i-${n}"/></svg>`;
+const STATUS={confirmed:"Confirmed",pending:"Awaiting confirmation",cancelled:"Cancelled",checkedin:"Checked in"};
+const pill=s=>`<span class="pill s-${s}">${STATUS[s]}</span>`;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
+const store={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const sess={get(k){try{return sessionStorage.getItem(k)}catch(e){return sess.m[k]}},set(k,v){sess.m[k]=v;try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){}},m:{}};
+
+function nextCard(list,label){
+  const up=list.filter(a=>a.status!=="cancelled"&&mins(a.time)>=mins(NOW)).sort((a,b)=>mins(a.time)-mins(b.time))[0];
+  if(!up)return `<div class="next"><div class="next-body"><span class="eyebrow">${label}</span><h2>No more appointments today</h2></div></div>`;
+  const left=mins(up.time)-mins(NOW),v=svc(up.svc),t=staff(up.staff);
+  return `<div class="next"><div class="next-tile"><b class="num">${left}</b><small>MIN</small></div>
+    <div class="next-body"><span class="eyebrow">${label}</span><h2>${esc(up.guest)}</h2><p>${v.name} · ${up.time} · ${v.min} min</p></div>
+    <div class="next-side"><span class="tag">${t.name.split(" ")[0]} · ${place(salon(up.salon))}</span><span class="ref mono">BX-${up.id}-${up.salon.toUpperCase()}</span></div></div>`;
+}
+
+// ---------- Section switch ----------
+const SECTIONS=["admin","salon","guests"];
+const CHIP={admin:"Admin",salon:"Salon",guests:"Guest"};
+let current="admin";
+const isAdmin=()=>!!sess.get("bx-admin");
+function showSection(sec){
+  if(!SECTIONS.includes(sec))sec="admin";current=sec;
+  // Salon staff and guests can't open Admin: the tab is locked until the admin signs in.
+  $("#tab-admin").disabled=!isAdmin();
+  $("#tab-admin").querySelector(".lock-ico").toggleAttribute("hidden",isAdmin());
+  $("#signin").hidden=isAdmin()||sec==="admin";
+  SECTIONS.forEach(s=>{$("#sec-"+s).hidden=s!==sec;$("#tab-"+s).setAttribute("aria-selected",s===sec)});
+  $("#role-chip").textContent=CHIP[sec];
+  ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
+  $("#logout").hidden=!isAdmin();
+  try{history.replaceState(null,"","#"+sec)}catch(e){}
+  window.scrollTo(0,0);
+}
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>showSection(b.dataset.sec));
+$("#refresh").onclick=()=>{showSection(current);toast("Up to date")};
+$("#logout").onclick=()=>{sess.set("bx-admin",null);authView="login";showSection("salon");toast("Signed out. Admin is locked.")};
+$("#signin").onclick=()=>{authView="login";authErr="";showSection("admin")};
+
+// ---------- Admin sign-in ----------
+// Prototype only: the starting credentials live in this page. A real app must check them on a server.
+const ADMIN_ID="admin@beautinix.de";
+const DEFAULT_PW="Beautinix@2026";
+const adminPw=()=>store.get("bx-admin-pw",DEFAULT_PW);
+let authView="login",resetCode=null,authErr="";
+function renderAuth(el){
+  let body="";
+  if(authView==="login"){
+    body=`<div class="auth-head"><h1>Admin sign-in</h1><p>Manage salons, staff, services and bookings.</p></div>
+    <form class="panel" id="login-form" novalidate>
+      <label class="f">Login ID<input class="input" id="login-id" type="email" autocomplete="username" value="${ADMIN_ID}" required></label>
+      <label class="f">Password<span class="pw"><input class="input" id="login-pw" type="password" autocomplete="current-password" required><button type="button" id="pw-show">Show</button></span></label>
+      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
+      <button class="btn primary block" type="submit">Sign in</button>
+      <button class="link" type="button" id="to-forgot">Forgot password?</button>
+    </form>
+    <p class="note">Starting login for this prototype: <span class="mono">${ADMIN_ID}</span> / <span class="mono">${DEFAULT_PW}</span></p>`;
+  } else if(authView==="forgot"){
+    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your login ID and we'll send a 6-digit code to its email address.</p></div>
+    <form class="panel" id="forgot-form" novalidate>
+      <label class="f">Login ID<input class="input" id="fp-id" type="email" value="${ADMIN_ID}" required></label>
+      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
+      <button class="btn primary block" type="submit">Send code</button>
+      <button class="link" type="button" id="to-login">Back to sign-in</button>
+    </form>`;
+  } else {
+    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to a•••••@beautinix.de. It's valid for 10 minutes.</p></div>
+    <p class="note">Prototype: no email is sent. Your code is <b>${resetCode}</b></p>
+    <form class="panel" id="reset-form" novalidate>
+      <label class="f">6-digit code<input class="input mono" id="rp-code" inputmode="numeric" maxlength="6" required></label>
+      <label class="f">New password<input class="input" id="rp-pw" type="password" autocomplete="new-password" required></label>
+      <label class="f">Repeat new password<input class="input" id="rp-pw2" type="password" autocomplete="new-password" required></label>
+      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
+      <button class="btn primary block" type="submit">Save new password</button>
+      <button class="link" type="button" id="to-login">Back to sign-in</button>
+    </form>`;
+  }
+  el.innerHTML=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${body}</div>`;
+  const go=v=>{authView=v;authErr="";renderAdmin()};
+  $("#to-forgot")&&($("#to-forgot").onclick=()=>go("forgot"));
+  $("#to-login")&&($("#to-login").onclick=()=>go("login"));
+  $("#pw-show")&&($("#pw-show").onclick=e=>{const i=$("#login-pw");i.type=i.type==="password"?"text":"password";e.target.textContent=i.type==="password"?"Show":"Hide"});
+  const lf=$("#login-form");if(lf)lf.onsubmit=e=>{e.preventDefault();
+    if($("#login-id").value.trim().toLowerCase()===ADMIN_ID&&$("#login-pw").value===adminPw()){sess.set("bx-admin","1");authErr="";showSection("admin");toast("Signed in")}
+    else{authErr="That login ID and password don't match. Check them, or reset your password.";renderAdmin()}};
+  const ff=$("#forgot-form");if(ff)ff.onsubmit=e=>{e.preventDefault();
+    if($("#fp-id").value.trim().toLowerCase()!==ADMIN_ID){authErr="We don't have an admin account with that login ID.";renderAdmin();return}
+    resetCode=String(Math.floor(100000+Math.random()*900000));go("reset")};
+  const rf=$("#reset-form");if(rf)rf.onsubmit=e=>{e.preventDefault();
+    const p=$("#rp-pw").value;
+    if($("#rp-code").value.trim()!==resetCode)authErr="That code isn't right. Check the 6 digits and try again.";
+    else if(p.length<8)authErr="Use at least 8 characters for the new password.";
+    else if(p!==$("#rp-pw2").value)authErr="The two passwords don't match.";
+    else{store.set("bx-admin-pw",p);resetCode=null;authView="login";authErr="";toast("Password changed. Sign in with your new password.");renderAdmin();return}
+    renderAdmin()};
+}
+
+// ---------- Admin ----------
+let adminView="overview";
+const ADMIN_TABS=[["overview","Overview","grid"],["add","Add salon","plus"],["appointments","Appointments","cal"],["salons","Salons","store"],["staff","Staff","users"],["services","Services","spark"],["guests","Guests","user"]];
+function renderAdmin(){
+  const el=$("#sec-admin");
+  if(!sess.get("bx-admin")){$("#logout").hidden=true;renderAuth(el);return}
+  const pending=APPTS.filter(a=>a.status==="pending").length;
+  el.innerHTML=nextCard(APPTS,"Next appointment · all salons")+
+   `<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}${k==="appointments"&&pending?`<span class="dot" aria-label="${pending} awaiting confirmation"></span>`:""}</button>`).join("")}</nav>
+   <div class="pane" id="pane"></div>`;
+  el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
+  ({overview:aOverview,add:aAdd,appointments:aAppointments,salons:aSalons,staff:aStaff,services:aServices,guests:aGuests})[adminView]($("#pane"));
+}
+function head(title,sub,right=""){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div><div class="tools">${right}<span class="sample">Sample data</span></div></div>`}
+function weekChart(){
+  const W=520,H=190,pl=30,pb=26,pt=18,max=80,bw=44,gap=(W-pl-WEEK.length*bw)/WEEK.length;
+  const y=v=>pt+(H-pt-pb)*(1-v/max);
+  let g=`<defs><linearGradient id="barg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0479A"/><stop offset="1" stop-color="#F5A524"/></linearGradient></defs>`;
+  [0,20,40,60,80].forEach(v=>{g+=`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--dim)">${v}</text>`});
+  WEEK.forEach((w,i)=>{const x=pl+gap/2+i*(bw+gap),top=y(w.n),today=i===5;
+    g+=`<rect x="${x}" y="${top}" width="${bw}" height="${y(0)-top}" rx="8" fill="${today?"url(#barg)":"var(--surface-2)"}" stroke="${today?"none":"var(--line)"}"/>`+
+       `<text x="${x+bw/2}" y="${top-6}" text-anchor="middle" font-size="11" font-weight="700" fill="${today?"var(--fg)":"var(--muted)"}">${w.n}</text>`+
+       `<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="${today?"var(--accent)":"var(--muted)"}">${w.d}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bookings per day this week">${g}</svg>`;
+}
+function aOverview(el){
+  const live=APPTS.filter(a=>a.status!=="cancelled");
+  const rev=live.reduce((s,a)=>s+svc(a.svc).price,0);
+  const pending=APPTS.filter(a=>a.status==="pending");
+  el.innerHTML=head("Overview","Saturday, 25 October · all salons")+`
+  <div class="kpis">
+    <div class="kpi"><span class="k">Appointments today</span><span class="v num">${live.length}</span><span class="d up">+3 vs last Saturday</span></div>
+    <div class="kpi"><span class="k">Booked revenue today</span><span class="v num">${inr(rev)}</span><span class="d up">+8%</span></div>
+    <div class="kpi"><span class="k">Awaiting confirmation</span><span class="v num">${pending.length}</span><span class="d ${pending.length?"down":"up"}">${pending.length?"Needs a reply":"All clear"}</span></div>
+    <div class="kpi"><span class="k">Chair utilisation</span><span class="v num">76%</span><span class="d up">+4 pts</span></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><div class="panel-head"><h3>Bookings this week</h3><span>Today highlighted</span></div><div class="chart">${weekChart()}</div></div>
+    <div class="panel"><div class="panel-head"><h3>Needs your attention</h3><span>${pending.length} open</span></div>
+      <div class="list">${pending.length?pending.map(a=>`<div class="list-item"><div><b>${esc(a.guest)}</b><div class="sub">${a.time} · ${svc(a.svc).name} · ${place(salon(a.salon))}</div></div>
+        <div class="row-actions"><button class="btn sm primary" data-ok="${a.id}">Confirm</button><button class="btn sm" data-no="${a.id}">Decline</button></div></div>`).join(""):`<p style="color:var(--muted)">Nothing waiting. New booking requests show up here.</p>`}</div>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-head"><h3>Salons today</h3><span>Share of chair hours booked</span></div>
+    <div class="cards">${SALONS.map(s=>{const n=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled").length;return `<div style="display:flex;flex-direction:column;gap:6px"><div class="panel-head"><b>${esc(place(s))}</b><span class="num">${n} appts · ${s.util}%</span></div><div class="bar"><i style="width:${s.util}%"></i></div></div>`}).join("")}</div>
+  </div>`;
+  el.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.ok,"confirmed");toast("Appointment confirmed")});
+  el.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.no,"cancelled");toast("Request declined")});
+}
+function setStatus(id,s){APPTS.find(a=>a.id===id).status=s;renderAdmin()}
+
+let apptFilter={salon:"all",status:"all",q:""};
+function aAppointments(el){
+  el.innerHTML=head("Appointments","Today across all salons")+`
+  <div class="tools">
+    <input class="input" id="f-q" type="search" placeholder="Search guest or service" value="${esc(apptFilter.q)}">
+    <select class="input" id="f-salon" aria-label="Salon"><option value="all">All salons</option>${SALONS.map(s=>`<option value="${s.id}">${esc(place(s))}</option>`).join("")}</select>
+    <select class="input" id="f-status" aria-label="Status"><option value="all">All statuses</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Guest</th><th>Service</th><th>Staff</th><th>Salon</th><th>Status</th><th class="right">Price</th><th></th></tr></thead><tbody id="appt-rows"></tbody></table></div>`;
+  $("#f-salon").value=apptFilter.salon;$("#f-status").value=apptFilter.status;
+  const draw=()=>{
+    const q=apptFilter.q.toLowerCase();
+    const rows=APPTS.filter(a=>(apptFilter.salon==="all"||a.salon===apptFilter.salon)&&(apptFilter.status==="all"||a.status===apptFilter.status)&&(!q||a.guest.toLowerCase().includes(q)||svc(a.svc).name.toLowerCase().includes(q)));
+    $("#appt-rows").innerHTML=rows.length?rows.map(a=>`<tr><td class="mono"><b>${a.time}</b></td><td>${esc(a.guest)}</td><td>${svc(a.svc).name}<span class="sub">${svc(a.svc).min} min</span></td><td>${staff(a.staff).name}</td><td>${esc(place(salon(a.salon)))}</td><td>${pill(a.status)}</td><td class="right num">${inr(svc(a.svc).price)}</td>
+      <td><div class="row-actions">${a.status==="pending"?`<button class="btn sm primary" data-ok="${a.id}">Confirm</button>`:""}${a.status!=="cancelled"?`<button class="btn sm" data-no="${a.id}">Cancel</button>`:""}</div></td></tr>`).join("")
+      :`<tr><td colspan="8" style="color:var(--muted)">No appointments match these filters.</td></tr>`;
+    $("#appt-rows").querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.ok,"confirmed");toast("Appointment confirmed")});
+    $("#appt-rows").querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.no,"cancelled");toast("Appointment cancelled")});
+  };
+  $("#f-q").oninput=e=>{apptFilter.q=e.target.value;draw()};
+  $("#f-salon").onchange=e=>{apptFilter.salon=e.target.value;draw()};
+  $("#f-status").onchange=e=>{apptFilter.status=e.target.value;draw()};
+  draw();
+}
+function aSalons(el){
+  el.innerHTML=head("Salons",`${SALONS.length} locations`,`<button class="btn primary" id="add-salon">Add salon</button>`)+`
+
+  <div class="cards">${SALONS.map(s=>`<article class="card"><div><h3>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h3><span style="color:var(--muted);font-size:13px">${esc(s.addr||s.desc||"")}</span></div>
+    <div class="contact">${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}${s.wa?`<span class="mono">${icon("chat")}${esc(s.wa)}</span>`:""}</div>
+    <dl class="meta"><dt>Hours</dt><dd>${s.hours}</dd><dt>Chairs</dt><dd class="num">${s.chairs}</dd><dt>Staff</dt><dd class="num">${STAFF.filter(t=>t.salon===s.id).length}</dd><dt>Rating</dt><dd class="num">★ ${s.rating}</dd></dl>
+    <div style="display:flex;flex-direction:column;gap:6px"><div class="panel-head" style="font-size:12px;color:var(--muted)"><span>Booked this week</span><span class="num">${s.util}%</span></div><div class="bar"><i style="width:${s.util}%"></i></div></div></article>`).join("")}</div>`;
+  $("#add-salon").onclick=()=>{adminView="add";renderAdmin()};
+}
+
+// Admin input page: a new salon goes straight to the Salon de Beauté tab.
+let addErr={},addDraft={};
+function aAdd(el){
+  const v=k=>esc(addDraft[k]||"");
+  const e=k=>addErr[k]?`<span class="field-err" role="alert">${addErr[k]}</span>`:"";
+  el.innerHTML=head("Add salon","Fill in the salon's details. When you save, it appears in Salon de Beauté.")+`
+  <form class="panel" id="add-form" novalidate style="max-width:720px">
+    <div class="form-grid" style="align-items:start">
+      <label class="f"><span>Salon name <span class="req">*</span></span><input class="input" id="ad-name" value="${v("name")}" placeholder="Glow Studio Bandra" required>${e("name")}</label>
+      <label class="f"><span>Name of the person <span class="req">*</span></span><input class="input" id="ad-person" value="${v("person")}" placeholder="Ananya Sharma" autocomplete="name" required>${e("person")}</label>
+      <label class="f"><span>WhatsApp number <span class="req">*</span></span><input class="input mono" id="ad-wa" type="tel" inputmode="tel" value="${v("wa")}" placeholder="+91 98765 43210" required>${e("wa")}</label>
+      <label class="f"><span>Email <span class="hint">(optional)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="hello@glowstudio.in" autocomplete="email">${e("email")}</label>
+    </div>
+    <label class="f"><span>Description <span class="hint">(optional)</span></span><textarea class="input" id="ad-desc" rows="3" placeholder="Services, timings, anything the team should know">${v("desc")}</textarea></label>
+    <div class="row"><button class="btn primary" type="submit">Save and send to Salon de Beauté</button><button class="btn" type="reset" id="ad-clear">Clear</button></div>
+  </form>`;
+  const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:$("#ad-wa").value.trim(),email:$("#ad-email").value.trim(),desc:$("#ad-desc").value.trim()}};
+  $("#ad-clear").onclick=ev=>{ev.preventDefault();addDraft={};addErr={};renderAdmin()};
+  $("#add-form").onsubmit=ev=>{ev.preventDefault();grab();addErr={};
+    const d=addDraft;
+    if(!d.name)addErr.name="Enter the salon's name.";
+    else if(SALONS.some(x=>x.name.toLowerCase()===d.name.toLowerCase()))addErr.name="A salon with this name already exists.";
+    if(!d.person)addErr.person="Enter the name of the person for this salon.";
+    let digits=d.wa.replace(/[^0-9]/g,"");
+    if(digits.length===12&&digits.startsWith("91"))digits=digits.slice(2);
+    if(digits.length===11&&digits.startsWith("0"))digits=digits.slice(1);
+    if(!/^[6-9][0-9]{9}$/.test(digits))addErr.wa="Enter a 10-digit Indian mobile number, for example +91 98765 43210.";
+    if(d.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email))addErr.email="Check the email address, or leave it empty.";
+    if(Object.keys(addErr).length){renderAdmin();return}
+    const n={id:"s"+Date.now(),added:true,name:d.name,city:"",person:d.person,wa:`+91 ${digits.slice(0,5)} ${digits.slice(5)}`,email:d.email,desc:d.desc,
+      addr:"",chairs:"–",hours:"Not set yet",rating:"–",util:0};
+    SALONS.push(n);saveAdded();addDraft={};
+    salonSel=n.id;store.set("bx-salon",n.id);
+    showSection("salon");toast(`${n.name} added to Salon de Beauté`)};
+}
+function aStaff(el){
+  el.innerHTML=head("Staff",`${STAFF.length} team members`)+`<div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Salon</th><th>Specialties</th><th class="right">Today</th></tr></thead><tbody>
+  ${STAFF.map(t=>`<tr><td><b>${t.name}</b></td><td>${t.role}</td><td>${place(salon(t.salon))}</td><td>${t.skills.join(", ")}</td><td class="right"><span class="num">${t.today} of 8 slots</span><div class="bar" style="margin-top:5px"><i style="width:${t.today/8*100}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
+}
+function aServices(el){
+  el.innerHTML=head("Services","Prices and durations guests see when booking")+`<div class="tbl-wrap"><table><thead><tr><th>Service</th><th>Category</th><th class="right">Duration</th><th class="right">Price</th><th class="right">Bookable</th></tr></thead><tbody>
+  ${SERVICES.map(s=>`<tr><td><b>${s.name}</b></td><td>${s.cat}</td><td class="right num">${s.min} min</td><td class="right num">${inr(s.price)}</td><td class="right"><button class="toggle" role="switch" aria-checked="${s.active}" aria-label="${s.name} bookable" data-s="${s.id}"></button></td></tr>`).join("")}</tbody></table></div>`;
+  el.querySelectorAll(".toggle").forEach(b=>b.onclick=()=>{const s=svc(b.dataset.s);s.active=!s.active;b.setAttribute("aria-checked",s.active);toast(s.active?`${s.name} is bookable`:`${s.name} hidden from guests`)});
+}
+function aGuests(el){
+  el.innerHTML=head("Guests",`${GUESTS.length} guests on file`)+`<div class="tbl-wrap"><table><thead><tr><th>Guest</th><th>Phone</th><th class="right">Visits</th><th>Last visit</th><th>Loyalty</th><th class="right">Lifetime spend</th></tr></thead><tbody>
+  ${GUESTS.map(g=>`<tr><td><b>${g.name}</b></td><td class="mono">${g.phone}</td><td class="right num">${g.visits}</td><td>${g.last}</td><td><span class="tier">${g.tier}</span></td><td class="right num">${inr(g.spend)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------- Salon de Beauté ----------
+let salonSel=store.get("bx-salon","ber");
+function renderSalon(){
+  const s=salon(salonSel)||SALONS[0];const team=STAFF.filter(t=>t.salon===s.id);
+  const start=9,end=20,hourPx=60,headH=58;
+  const ap=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled");
+  const top=t=>mins(t)-start*60;
+  $("#sec-salon").innerHTML=nextCard(ap,"Next guest · "+esc(place(s)))+`
+  <div class="pane-head"><div><h1>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h1><p>Today · ${ap.length} appointments${team.length?" · tap one to check the guest in":""}</p></div>
+    <div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${SALONS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><span class="sample">Sample data</span></div></div>
+  <div class="panel"><div class="contact">
+    ${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}
+    ${s.wa?`<a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>`:""}
+    ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
+  </div>${s.desc?`<p style="color:var(--muted)">${esc(s.desc)}</p>`:""}</div>
+  <div class="timeline"><div class="tl" style="grid-template-columns:64px repeat(${Math.max(team.length,1)},minmax(170px,1fr))">
+    <div class="hcell hours" style="height:${headH}px"></div>${team.map(t=>`<div class="hcell" style="height:${headH}px">${t.name}<small>${t.role}</small></div>`).join("")||`<div class="hcell" style="height:${headH}px">No staff yet</div>`}
+    <div class="hours">${Array.from({length:end-start},(_,i)=>`<div class="hour">${String(start+i).padStart(2,"0")}:00</div>`).join("")}</div>
+    ${team.map(t=>`<div class="col" style="height:${(end-start)*hourPx}px">${ap.filter(a=>a.staff===t.id).map(a=>{const v=svc(a.svc);return `<button class="appt ${a.status}" style="top:${top(a.time)}px;height:${v.min-4}px" data-id="${a.id}"><b>${a.time} ${esc(a.guest)}</b><span>${v.name}${a.status==="checkedin"?" · checked in":a.status==="pending"?" · awaiting confirmation":""}</span></button>`}).join("")}</div>`).join("")}
+    <div class="now" style="top:${headH+top(NOW)}px" aria-hidden="true"></div>
+  </div></div>`;
+  $("#salon-pick").value=s.id;
+  $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()};
+  $("#sec-salon").querySelectorAll(".appt").forEach(b=>b.onclick=()=>{const a=APPTS.find(x=>x.id==b.dataset.id);
+    if(a.status==="checkedin"){a.status="confirmed";toast(`${a.guest}: check-in undone`)}else{a.status="checkedin";toast(`${a.guest} checked in`)}renderSalon()});
+}
+
+// ---------- die Gäste ----------
+const book={step:0,svc:null,salon:null,day:0,time:null,done:false};
+const STEP_NAMES=["Treatment","Salon","Date & time","Confirm"];
+function days(){const out=[];const d=new Date(2026,9,25);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
+const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
+function renderGuests(){
+  const el=$("#sec-guests");
+  let body="";
+  if(book.done){
+    const s=svc(book.svc),sl=salon(book.salon),d=days()[book.day];
+    body=`<div class="ok-box">You're booked for ${fmt(d,{weekday:"long",day:"numeric",month:"long"})} at ${book.time}. The salon will confirm shortly.</div>
+      <div class="panel summary"><h3>Your appointment</h3><dl><dt>Treatment</dt><dd>${s.name}</dd><dt>Salon</dt><dd>${esc(sl.name)}<br><span style="font-weight:400;color:var(--muted)">${esc(sl.addr)}</span></dd><dt>When</dt><dd class="num">${fmt(d,{day:"numeric",month:"short"})}, ${book.time} · ${s.min} min</dd><dt>Price</dt><dd class="num">${inr(s.price)}, paid at the salon</dd></dl></div>
+      <div class="nav"><span></span><button class="btn primary" id="again">Book another treatment</button></div>`;
+  } else if(book.step===0){
+    body=`<h2>What would you like?</h2><div class="choices">${SERVICES.filter(s=>s.active).map(s=>`<button class="choice" data-svc="${s.id}" aria-pressed="${book.svc===s.id}"><b>${s.name}</b><span>${s.cat} · ${s.min} min</span><span class="price num">${inr(s.price)}</span></button>`).join("")}</div>`;
+  } else if(book.step===1){
+    body=`<h2>Choose a salon</h2><div class="choices">${SALONS.map(s=>`<button class="choice" data-salon="${s.id}" aria-pressed="${book.salon===s.id}"><b>${esc(place(s))}</b><span>${esc(s.addr||s.desc||"")}</span><span>★ ${s.rating} · ${s.hours}</span></button>`).join("")}</div>`;
+  } else if(book.step===2){
+    const busy=[["10:00","12:30","15:00"],["09:30","11:00","16:30"],["13:00","14:00","17:30"]][book.day%3];
+    const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
+    body=`<h2>Pick a day and time</h2>
+      <div class="days">${days().map((d,i)=>`<button class="day" data-day="${i}" aria-pressed="${book.day===i}"><small>${fmt(d,{weekday:"short"})}</small><b class="num">${d.getDate()}</b></button>`).join("")}</div>
+      <div class="slots">${times.map(t=>{const off=busy.includes(t)||(book.day===0&&mins(t)<=mins(NOW));return `<button class="slot" data-time="${t}" aria-pressed="${book.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>`;
+  } else {
+    const s=svc(book.svc),sl=salon(book.salon),d=days()[book.day];
+    body=`<h2>Check your booking</h2><form class="panel summary" id="confirm-form"><dl><dt>Treatment</dt><dd>${s.name} · ${s.min} min</dd><dt>Salon</dt><dd>${esc(sl.name)}</dd><dt>When</dt><dd class="num">${fmt(d,{weekday:"long",day:"numeric",month:"long"})}, ${book.time}</dd><dt>Price</dt><dd class="num">${inr(s.price)}</dd></dl>
+      <div class="form-grid"><label class="f">Your name<input class="input" id="g-name" required value="Hannah Schulz"></label><label class="f">Mobile number<input class="input" id="g-phone" type="tel" required value="+49 151 2345 6789"></label></div>
+      <button class="btn primary block" type="submit">Book appointment</button></form>`;
+  }
+  const canNext=[book.svc,book.salon,book.time][book.step];
+  const nav=book.done?"":book.step===3?`<div class="nav"><button class="btn" id="back">Back</button><span></span></div>`
+    :`<div class="nav">${book.step>0?`<button class="btn" id="back">Back</button>`:"<span></span>"}<button class="btn primary" id="next" ${canNext?"":"disabled"}>Continue</button></div>`;
+  el.innerHTML=`<div class="guest">
+    <div class="next"><div class="next-tile">${icon("cal").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">Book online</span><h2>Book your next treatment</h2><p>Pick a treatment, a salon and a time. It takes under a minute.</p></div></div>
+    ${book.done?"":`<div class="steps">${STEP_NAMES.map((n,i)=>`<span class="${i===book.step?"on":i<book.step?"done":""}">${i+1}. ${n}</span>`).join("")}</div>`}
+    ${body}${nav}</div>`;
+  el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{book.svc=b.dataset.svc;renderGuests()});
+  el.querySelectorAll("[data-salon]").forEach(b=>b.onclick=()=>{book.salon=b.dataset.salon;renderGuests()});
+  el.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{book.day=+b.dataset.day;book.time=null;renderGuests()});
+  el.querySelectorAll("[data-time]").forEach(b=>b.onclick=()=>{book.time=b.dataset.time;renderGuests()});
+  $("#next")&&($("#next").onclick=()=>{book.step++;renderGuests()});
+  $("#back")&&($("#back").onclick=()=>{book.step--;renderGuests()});
+  $("#again")&&($("#again").onclick=()=>{Object.assign(book,{step:0,svc:null,salon:null,day:0,time:null,done:false});renderGuests()});
+  const f=$("#confirm-form");if(f)f.onsubmit=e=>{e.preventDefault();
+    const name=$("#g-name").value.trim();if(!name||!$("#g-phone").value.trim()){toast("Add your name and mobile number to book");return}
+    const t=STAFF.find(x=>x.salon===book.salon);
+    if(book.day===0&&t)APPTS.push({id:Date.now()%100000,time:book.time,guest:name,svc:book.svc,staff:t.id,salon:book.salon,status:"pending"});
+    book.done=true;renderGuests()};
+}
+
+showSection((location.hash||"#admin").slice(1));
+</script>
