@@ -192,6 +192,13 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
 .pw .input{padding-right:64px}
 .pw button{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);font-size:12px;font-weight:700}
 .err{color:var(--bad);font-size:13px;font-weight:600}
+.terms-box{max-height:340px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px 18px 14px;font-size:13px;line-height:1.6;color:var(--muted)}
+.terms-box h4{color:var(--fg);margin:14px 0 4px;font-size:14px}.terms-box p{margin:0}
+.auth.wide{max-width:560px}
+.fee-card{display:flex;gap:16px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:var(--r);padding:16px 18px}
+.fee-card>div{display:flex;flex-direction:column;align-items:center;min-width:92px}.fee-card b{font-size:30px;line-height:1.1;color:var(--fg)}.fee-card small{color:var(--muted)}
+.fee-card p{margin:0;color:var(--muted);font-size:13px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer}.check input{width:18px;height:18px;accent-color:var(--accent);margin:2px 0 0;flex:none}
 .note{background:var(--gold-soft);border:1px solid rgb(245 165 36 / .35);color:var(--gold);border-radius:var(--r-sm);padding:10px 12px;font-size:13px}
 .note b{font-family:var(--mono);letter-spacing:.2em}
 
@@ -448,7 +455,7 @@ function showSection(sec,keep){
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>showSection(b.dataset.sec));
 $("#refresh").onclick=()=>{showSection(current,true);toast("Up to date")};
 $("#logout").onclick=async()=>{const was=me.role==="guest"?"guests":"salon";
-  authView="login";salonAuth="login";guestView="list";gb.salon=null;lastInvite=null;
+  authView="login";salonAuth="login";guestView="list";gb.salon=null;lastInvite=null;editing=false;edDraft=null;termsErr="";
   if(auth)await auth.signOut();await resolve(null);showSection(was);toast("Signed out")};
 $("#signin").onclick=()=>{authView="login";authErr="";showSection("admin")};
 
@@ -705,7 +712,7 @@ function renderSalonAuth(el){
         try{cred=await auth.signInWithEmailAndPassword(claim.email,p)}catch(e2){throw {code:"bx/exists"}}
       }
       const batch=db.batch(),uid=cred.user.uid;
-      batch.update(col("salons").doc(claim.salonId),{ownerUid:uid,status:"active",claimCode:claim.code});
+      batch.update(col("salons").doc(claim.salonId),{ownerUid:uid,status:"active",claimCode:claim.code,terms:termsRecord()});
       batch.update(col("listings").doc(claim.salonId),{active:true});
       batch.update(col("invites").doc(claim.code),{used:true});
       await batch.commit();
@@ -717,6 +724,52 @@ function renderSalonAuth(el){
     try{await auth.sendPasswordResetEmail(m)}catch(err){if(!/user-not-found/.test(err.code))return fail(errMsg(err))}
     salonResetFor=m;go("sent")};
 }
+// ---------- Terms for salon owners ----------
+// Owners agree before they see the salon sign-in. The acceptance is saved on their salon when the account exists.
+const TERMS_VERSION="1.0",PLATFORM_FEE=200;
+const TERMS=[
+  ["About Beautinix","Beautinix is an online platform that lists beauty salons and lets guests find them and book appointments. These terms apply between Beautinix and the salon (“you”) that uses Salon de Beauté."],
+  ["Your account","Your account is created with the unique code the Beautinix team sends you. Keep your password private. You are responsible for everything done with your account, and you must tell us at once if you think someone else is using it."],
+  [`Platform fee: ₹${PLATFORM_FEE} per month`,`You agree to pay Beautinix a platform fee of ₹${PLATFORM_FEE} (two hundred rupees) per month, plus any applicable taxes. The fee starts from the date your account is created, is payable in advance for each month and is not refunded for part of a month. If the fee is unpaid for more than 15 days after it is due, Beautinix may hide your salon from guests until it is paid. We will tell you at least 30 days before any change to the fee.`],
+  ["Your salon details","Your salon name, contact details, services, prices and availability must be accurate and kept up to date. Prices are in Indian rupees and are what the guest pays at your salon. You must hold any licences your services need."],
+  ["Bookings and payments from guests","A booking is an agreement between you and the guest. Guests pay you directly at the salon; Beautinix does not collect or hold that money. Honour bookings you accept, and if you can't, contact the guest on WhatsApp as early as you can."],
+  ["Guest information","Use guests' names, phone numbers and emails only to handle their bookings. Don't share them, sell them or send unrelated marketing."],
+  ["Fair use","Don't post false, offensive or misleading content, copy other salons' listings, or try to interfere with the platform or other users' accounts."],
+  ["Ending your account","You can stop using Beautinix at any time by telling the Beautinix team; the fee stops from the next month. Beautinix may suspend or remove a salon that breaks these terms or doesn't pay the fee."],
+  ["Liability","Beautinix provides the platform as it is and is not responsible for the services a salon provides to guests. To the extent the law allows, Beautinix's total liability to you is limited to the platform fees you paid in the last 3 months."],
+  ["Changes and law","We may update these terms and will tell you in the app before changes take effect; if you keep using Beautinix after that, you accept the new terms. These terms are governed by the laws of India."],
+];
+let termsOk=store.get("bx-terms","")===TERMS_VERSION,termsErr="",termsSaving=false;
+function termsView(owner){
+  return `<div class="auth wide">${logo()}
+    <div class="auth-head"><h1>Terms for salons</h1><p>Read and agree to these terms to use Salon de Beauté.</p></div>
+    <div class="fee-card"><div><span class="eyebrow">Platform fee</span><b class="num">₹${PLATFORM_FEE}</b><small>per month</small></div><p>Paid to Beautinix for listing your salon and receiving bookings. Guests pay you directly at the salon.</p></div>
+    <div class="terms-box" tabindex="0" aria-label="Terms and conditions">${TERMS.map(([h,t],i)=>`<h4>${i+1}. ${h}</h4><p>${t}</p>`).join("")}<p class="small">Version ${TERMS_VERSION}, 25 October 2026</p></div>
+    <form class="panel" id="terms-form" novalidate>
+      <label class="check"><input type="checkbox" id="tc-terms"> <span>I have read and agree to the Beautinix Terms and Conditions.</span></label>
+      <label class="check"><input type="checkbox" id="tc-fee"> <span>I agree to pay a platform fee of <b>₹${PLATFORM_FEE} per month</b>.</span></label>
+      ${termsErr?`<p class="err" role="alert">${esc(termsErr)}</p>`:""}
+      <button class="btn primary block" type="submit" id="tc-go" disabled>${termsSaving?"Saving…":"Agree and continue"}</button>
+      ${owner?`<button class="link" type="button" id="tc-out">Not now, sign out</button>`:""}
+    </form></div>`;
+}
+const termsRecord=()=>({version:TERMS_VERSION,fee:PLATFORM_FEE,acceptedAt:now()});
+async function saveTerms(s){
+  termsSaving=true;
+  try{await col("salons").doc(s.id).update({terms:termsRecord()});termsErr=""}
+  catch(e){console.error(e);termsErr=errMsg(e)}
+  termsSaving=false;rerender("salon");
+}
+function bindTerms(el,owner){
+  const f=$("#terms-form"),a=$("#tc-terms"),b=$("#tc-fee"),go=$("#tc-go");
+  const upd=()=>go.disabled=termsSaving||!(a.checked&&b.checked);
+  a.onchange=b.onchange=upd;
+  $("#tc-out")&&($("#tc-out").onclick=()=>$("#logout").click());
+  f.onsubmit=e=>{e.preventDefault();if(!(a.checked&&b.checked))return;
+    termsOk=true;store.set("bx-terms",TERMS_VERSION);termsErr="";
+    if(owner)saveTerms(owner);else{renderSalon();window.scrollTo(0,0)}};
+}
+
 function renderSalon(){
   const el=$("#sec-salon");
   if(!db){el.innerHTML=offlineView;return}
@@ -725,25 +778,80 @@ function renderSalon(){
   if(!mine&&!isAdmin()){
     if(me.role==="owner"&&data.loaded){el.innerHTML=`<div class="panel"><h3>Your salon isn't on Beautinix any more</h3><p class="small">The Beautinix team removed it. Ask them if you think this is a mistake.</p></div>`;return}
     if(me.role==="owner"){el.innerHTML=loadingView;return}
+    if(!termsOk){el.innerHTML=termsView(null);bindTerms(el,null);return}
     renderSalonAuth(el);return;
+  }
+  // An owner whose salon has no saved acceptance agrees first; if they already agreed on this device, save it now.
+  if(mine&&!(mine.terms&&mine.terms.version===TERMS_VERSION)){
+    if(termsOk&&!termsSaving&&!termsErr){saveTerms(mine);el.innerHTML=loadingView;return}
+    el.innerHTML=termsView(mine);bindTerms(el,mine);return;
   }
   // A salon owner sees only their salon; the signed-in admin can look at any salon.
   const list=data.salons;
   if(!mine&&!list.length){el.innerHTML=head("Salon de Beauté",data.loaded?"No salons yet. Add one in Admin and it appears here.":"Loading…");return}
   const s=mine||list.find(x=>x.id===salonSel)||list[0];
+  const terms=s.terms?`T&C accepted ${s.terms.acceptedAt&&s.terms.acceptedAt.toDate?fmt(s.terms.acceptedAt.toDate(),{day:"numeric",month:"short",year:"numeric"}):""} · ₹${s.terms.fee}/month`:"T&C not accepted yet";
   el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?"":` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
     ${mine?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div>`}</div>
   ${dbNote()}
-  <div class="panel"><div class="contact">
+  ${mine&&editing?editPanel(s):`<div class="panel"><div class="panel-head"><h3>Salon details</h3>${mine?`<button class="btn sm" id="ed-open">Edit details</button>`:""}</div><div class="contact">
     <span>${icon("user")}${esc(s.person)}</span>
     <a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
     <span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>
-  </div></div>
+  </div><p class="small">${esc(terms)}</p></div>`}
   ${ownerPanels(s,!!mine)}`;
   bindOwner(el,s);
+  if(mine)bindEdit(el,s);
   if(!mine){$("#salon-pick").value=s.id;
     $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
+}
+
+// ---------- Edit salon details (owner) ----------
+let editing=false,edErr={},edDraft=null,edSaving=false;
+function editPanel(s){
+  const d=edDraft||{name:s.name,person:s.person,wa:waDigits(s.wa).slice(-10),state:s.state,city:s.city,pin:s.pin};edDraft=d;
+  const v=k=>esc(d[k]||""),e=k=>edErr[k]?`<span class="field-err" role="alert">${edErr[k]}</span>`:"";
+  return `<form class="panel" id="ed-form" novalidate><div class="panel-head"><h3>Edit details</h3></div>
+    <div class="form-grid" style="align-items:start">
+      <label class="f"><span>Salon name</span><input class="input" id="ed-name" value="${v("name")}">${e("name")}</label>
+      <label class="f"><span>Name of the person</span><input class="input" id="ed-person" value="${v("person")}" autocomplete="name">${e("person")}</label>
+      <label class="f"><span>WhatsApp number</span>${waField("ed-wa",v("wa"))}${e("wa")}</label>
+      <label class="f"><span>Email <span class="hint">(sign-in, ask the Beautinix team to change it)</span></span><input class="input" value="${esc(s.email)}" disabled></label>
+      <label class="f"><span>State</span><select class="input" id="ed-state">${STATES.map(x=>`<option${d.state===x?" selected":""}>${x}</option>`).join("")}</select></label>
+      <label class="f"><span>City</span><input class="input" id="ed-city" value="${v("city")}">${e("city")}</label>
+      <label class="f"><span>PIN code</span><input class="input mono" id="ed-pin" inputmode="numeric" maxlength="6" value="${v("pin")}">${e("pin")}</label>
+    </div>
+    ${edErr.save?`<p class="err" role="alert">${esc(edErr.save)}</p>`:""}
+    <div class="row"><button class="btn primary" type="submit" ${edSaving?"disabled":""}>${edSaving?"Saving…":"Save changes"}</button><button class="btn" type="button" id="ed-cancel">Cancel</button></div>
+  </form>`;
+}
+function bindEdit(el,s){
+  $("#ed-open")&&($("#ed-open").onclick=()=>{editing=true;edDraft=null;edErr={};renderSalon()});
+  const f=$("#ed-form");if(!f)return;
+  const grab=()=>{edDraft={name:$("#ed-name").value.trim().replace(/\s+/g," "),person:$("#ed-person").value.trim(),wa:waDigits($("#ed-wa").value),state:$("#ed-state").value,city:$("#ed-city").value.trim(),pin:$("#ed-pin").value.trim()}};
+  f.addEventListener("input",grab);f.addEventListener("change",grab);
+  $("#ed-cancel").onclick=()=>{editing=false;edDraft=null;edErr={};renderSalon()};
+  f.onsubmit=async e=>{e.preventDefault();if(edSaving)return;grab();edErr={};
+    const d=edDraft,others=data.salons.filter(x=>x.id!==s.id),wa=waFmt(d.wa);
+    if(!d.name)edErr.name="Enter the salon's name.";
+    else if(d.name.length>80)edErr.name="Keep the name under 80 characters.";
+    else if(others.some(x=>x.name.toLowerCase()===d.name.toLowerCase()))edErr.name="Another salon already uses this name.";
+    if(!d.person)edErr.person="Enter the name of the person for this salon.";
+    if(waProblem(d.wa))edErr.wa=waProblem(d.wa);
+    else if(others.some(x=>x.wa===wa))edErr.wa="Another salon already uses this WhatsApp number.";
+    if(!d.city)edErr.city="Enter the city.";
+    if(!/^[1-9][0-9]{5}$/.test(d.pin))edErr.pin="Enter the 6-digit PIN code.";
+    if(Object.keys(edErr).length){renderSalon();return}
+    edSaving=true;renderSalon();
+    try{
+      const batch=db.batch();
+      batch.update(col("salons").doc(s.id),{name:d.name,person:d.person,wa,state:d.state,city:d.city,pin:d.pin});
+      batch.update(col("listings").doc(s.id),{name:d.name});
+      await batch.commit();
+      editing=false;edDraft=null;toast("Details saved");
+    }catch(err){console.error(err);edErr={save:errMsg(err)}}
+    edSaving=false;renderSalon()};
 }
 
 // ---------- Salon services & availability (owner) ----------

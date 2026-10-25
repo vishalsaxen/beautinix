@@ -9,22 +9,35 @@ service cloud.firestore {
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
     function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }
+    function validTerms(t) { return t.version is string && t.fee == 200 && t.acceptedAt == request.time; }
+    function validDetails(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.person is string && d.person.size() > 0 && d.person.size() <= 80
+        && d.wa.matches("[+]91 [0-9]{5} [0-9]{5}")
+        && d.state is string && d.city is string && d.city.size() > 0
+        && d.pin.matches("[1-9][0-9]{5}");
+    }
 
     // Full salon details. Signed-in users only; signed-out guests see the listings below.
     match /salons/{id} {
       allow read: if signedIn();
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-        // The owner edits their services and availability.
+        // The owner edits their details, services and availability, and records agreeing to the terms.
         || (signedIn() && resource.data.ownerUid == request.auth.uid
-            && changed().hasOnly(["services", "availability"])
+            && changed().hasOnly(["name", "person", "wa", "state", "city", "pin", "services", "availability", "terms"])
+            && validDetails(request.resource.data)
             && request.resource.data.services is list
             && request.resource.data.services.size() <= 100
-            && validAvailability(request.resource.data.availability))
+            && validAvailability(request.resource.data.availability)
+            && (!changed().hasAny(["terms"]) || validTerms(request.resource.data.terms))
+            // A new name must be written to the public listing in the same batch.
+            && (!changed().hasAny(["name"]) || getAfter(path("listings", id)).data.name == request.resource.data.name))
         // The owner claims the salon with the unique code sent on WhatsApp.
         || (signedIn() && resource.data.ownerUid == null
             && request.auth.token.email == resource.data.email
-            && changed().hasOnly(["ownerUid", "status", "claimCode"])
+            && changed().hasOnly(["ownerUid", "status", "claimCode", "terms"])
+            && validTerms(request.resource.data.terms)
             && request.resource.data.ownerUid == request.auth.uid
             && request.resource.data.status == "active"
             && get(path("invites", request.resource.data.claimCode)).data.salonId == id
@@ -38,7 +51,8 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (signedIn() && getAfter(path("salons", id)).data.ownerUid == request.auth.uid
-            && changed().hasOnly(["availability", "active"])
+            && changed().hasOnly(["availability", "active", "name"])
+            && request.resource.data.name == getAfter(path("salons", id)).data.name
             && validAvailability(request.resource.data.availability));
     }
 
