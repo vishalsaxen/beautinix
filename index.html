@@ -315,8 +315,8 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
   <div class="row">
     <div class="seg" role="tablist" aria-label="App section">
       <button role="tab" id="tab-admin" data-sec="admin"><svg class="ico lock-ico" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" hidden><use href="#i-lock"/></svg>Admin</button>
-      <button role="tab" id="tab-salon" data-sec="salon">Salon de Beauté</button>
-      <button role="tab" id="tab-guests" data-sec="guests">die Gäste</button>
+      <button role="tab" id="tab-salon" data-sec="salon"><svg class="ico lock-ico" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" hidden><use href="#i-lock"/></svg>Salon de Beauté</button>
+      <button role="tab" id="tab-guests" data-sec="guests"><svg class="ico lock-ico" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" hidden><use href="#i-lock"/></svg>die Gäste</button>
     </div>
   </div>
   <section id="sec-admin" class="pane" hidden></section>
@@ -373,7 +373,7 @@ function errMsg(e){
 // Roles: admin (the admin email), owner (a salon whose ownerUid is this user), guest (a guests/{uid} document).
 const ADMIN_ID="admin@beautinix.de";
 let me={ready:!db,user:null,role:null,salonId:null,guest:null};
-let data={salons:[],invites:{},bookings:[],loaded:false};
+let data={salons:[],invites:{},bookings:[],guests:[],loaded:false};
 let listings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
 const isAdmin=()=>me.role==="admin";
 const salonUser=()=>me.role==="owner"?data.salons.find(s=>s.id===me.salonId)||null:null;
@@ -387,7 +387,8 @@ function attach(){
   listen(r==="admin"?col("salons"):col("salons").where("status","==","active"),s=>{data.salons=docs(s);data.loaded=true;rerender()});
   if(r==="admin"){
     listen(col("invites"),s=>{data.invites={};s.docs.forEach(d=>data.invites[d.data().salonId]=d.id);rerender("admin")});
-    listen(col("bookings"),s=>{data.bookings=docs(s);rerender("salon")});
+    listen(col("bookings"),s=>{data.bookings=docs(s);rerender()});
+    listen(col("guests"),s=>{data.guests=docs(s);rerender("admin")});
   }
   if(r==="owner")listen(col("bookings").where("ownerUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("salon")});
   if(r==="guest")listen(col("bookings").where("guestUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("guests")});
@@ -395,7 +396,7 @@ function attach(){
 async function resolve(u){
   const my=++gen;resolvedUid=u?u.uid:null;
   unsubs.forEach(f=>f());unsubs=[];
-  data={salons:[],invites:{},bookings:[],loaded:false};
+  data={salons:[],invites:{},bookings:[],guests:[],loaded:false};
   me={ready:false,user:u,role:null,salonId:null,guest:null};
   if(u){
     rerender();
@@ -439,14 +440,29 @@ const dbNote=()=>dbErr?`<p class="err" role="alert">${esc(dbErr)}</p>`:"";
 const SECTIONS=["admin","salon","guests"];
 const CHIP={admin:"Admin",salon:"Salon",guests:"Guest"};
 let current="admin";
+// Each role sees only its own tab: the admin sees all three, a salon owner only Salon de Beauté, a guest only die Gäste.
+// Signed out, Salon de Beauté and die Gäste are open and Admin is reached through the Sign in button.
+function allowed(sec){
+  const r=me.role;
+  if(r==="admin")return true;
+  if(r==="owner")return sec==="salon";
+  if(r==="guest")return sec==="guests";
+  return sec!=="admin"||!me.user;
+}
+// stay: keep the salon sign-in page open while it checks whether the account belongs to a salon.
+let stay=false;
+const homeOf=()=>me.role==="owner"?"salon":me.role==="guest"?"guests":"guests";
 function showSection(sec,keep){
-  if(!SECTIONS.includes(sec))sec="admin";current=sec;
-  // Salon owners and guests can't open Admin: the tab is locked until the admin signs in.
-  $("#tab-admin").disabled=!isAdmin();
-  $("#tab-admin").querySelector(".lock-ico").toggleAttribute("hidden",isAdmin());
+  if(!SECTIONS.includes(sec))sec="admin";
+  if(me.ready&&!stay&&!allowed(sec)){sec=homeOf();keep=false}
+  current=sec;
+  SECTIONS.forEach(s=>{
+    const off=s==="admin"?!isAdmin():!allowed(s),t=$("#tab-"+s);
+    t.disabled=off;t.querySelector(".lock-ico").toggleAttribute("hidden",!off);
+    $("#sec-"+s).hidden=s!==sec;t.setAttribute("aria-selected",s===sec);
+  });
   $("#signin").hidden=!!me.user||sec==="admin";
   $("#logout").hidden=!me.user;
-  SECTIONS.forEach(s=>{$("#sec-"+s).hidden=s!==sec;$("#tab-"+s).setAttribute("aria-selected",s===sec)});
   $("#role-chip").textContent=CHIP[sec];
   ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
   try{history.replaceState(null,"",location.search+"#"+sec)}catch(e){}
@@ -530,7 +546,7 @@ function renderAuth(el){
 
 // ---------- Admin ----------
 let adminView="add";
-const ADMIN_TABS=[["add","Add Salon Details","plus"]];
+const ADMIN_TABS=[["add","Add Salon Details","plus"],["owners","Salon Owners","store"],["guests","Guests","user"]];
 function renderAdmin(){
   const el=$("#sec-admin");
   if(!db){el.innerHTML=offlineView;return}
@@ -539,9 +555,35 @@ function renderAdmin(){
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
-  ({add:aAdd})[adminView]($("#pane"));
+  ({add:aAdd,owners:aOwners,guests:aGuests})[adminView]($("#pane"));
 }
 function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`}
+
+
+// Salon owners who created their account with their code, and guests who signed up in die Gäste.
+const when=t=>t&&t.toDate?fmt(t.toDate(),{day:"numeric",month:"short",year:"numeric"}):"–";
+const waA=wa=>`<a class="mono" href="https://wa.me/${String(wa).replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(wa)}</a>`;
+function aOwners(el){
+  const owners=data.salons.filter(s=>s.status==="active").sort((a,b)=>a.name.localeCompare(b.name));
+  const waiting=data.salons.length-owners.length;
+  el.innerHTML=head("Salon Owners","Salons whose owner has created an account in Salon de Beauté.")+dbNote()+
+  `<div class="panel"><div class="panel-head"><h3>Accounts created</h3><span>${owners.length}</span></div>
+  ${owners.length?`<div class="list">${owners.map(s=>{const n=data.bookings.filter(b=>b.salonId===s.id).length;return `<div class="list-item"><div><b>${esc(s.name)}</b>
+      <div class="sub">${esc(s.person)} · ${waA(s.wa)} · ${esc(s.email)}</div>
+      <div class="sub">${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)} · ${(s.services||[]).length} services · ${n} booking${n===1?"":"s"}</div></div>
+    <div class="row-actions">${availPill(s)}${s.terms?`<span class="pill s-confirmed">T&amp;C ${when(s.terms.acceptedAt)}</span>`:`<span class="pill s-pending">T&amp;C pending</span>`}</div></div>`}).join("")}</div>`
+    :`<p class="small">${data.loaded?"No salon owner has created an account yet.":"Loading…"}</p>`}
+  ${waiting>0?`<p class="small">${waiting} invited salon${waiting===1?" hasn't":"s haven't"} created an account yet. See Add Salon Details.</p>`:""}</div>`;
+}
+function aGuests(el){
+  const list=data.guests.slice().sort((a,b)=>msOf(b.createdAt)-msOf(a.createdAt));
+  el.innerHTML=head("Guests","Everyone who created a guest account in die Gäste.")+dbNote()+
+  `<div class="panel"><div class="panel-head"><h3>Guest accounts</h3><span>${list.length}</span></div>
+  ${list.length?`<div class="list">${list.map(g=>{const n=data.bookings.filter(b=>b.guestUid===g.id).length;return `<div class="list-item"><div><b>${esc(g.name)}</b>
+      <div class="sub">${waA(g.wa)} · ${esc(g.email)}</div></div>
+    <div class="right"><b>${n} booking${n===1?"":"s"}</b><div class="sub">Joined ${when(g.createdAt)}</div></div></div>`}).join("")}</div>`
+    :`<p class="small">${data.loaded?"No guest has created an account yet.":"Loading…"}</p>`}</div>`;
+}
 
 const STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
 
@@ -688,9 +730,10 @@ function renderSalonAuth(el){
     const m=$("#sl-email").value.trim().toLowerCase(),p=$("#sl-pw").value;
     if(emailProblem(m))return fail(emailProblem(m));
     lock(f1);
-    try{await withAuth(()=>auth.signInWithEmailAndPassword(m,p))}catch(err){return fail(errMsg(err))}
-    if(me.role!=="owner"&&!isAdmin()){await auth.signOut();await resolve(null);return fail(dbErr||"This account isn't linked to a salon. Use the email the Beautinix team added for your salon.")}
-    salonErr="";showSection("salon");toast("Signed in")};
+    stay=true;
+    try{await withAuth(()=>auth.signInWithEmailAndPassword(m,p))}catch(err){stay=false;return fail(errMsg(err))}
+    if(me.role!=="owner"&&!isAdmin()){await auth.signOut();await resolve(null);stay=false;return fail(dbErr||"This account isn't linked to a salon. Use the email the Beautinix team added for your salon.")}
+    stay=false;salonErr="";showSection("salon");toast("Signed in")};
   const f2=$("#s-claim");if(f2)f2.onsubmit=async e=>{e.preventDefault();
     const raw=$("#sc-code").value.trim().toUpperCase().replace(/\s+/g,"");
     const c="BX-"+raw.replace(/^BX-?/,"");
