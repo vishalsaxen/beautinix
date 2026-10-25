@@ -4,7 +4,7 @@ Beauty clinic appointment app. This repository holds the first HTML prototype an
 
 ## App sections
 
-- **Admin**: sign-in, overview, add salon (salon name, person, WhatsApp number, optional email and description), appointments, salons, staff, services and guests. Saving a new salon sends it to Salon de Beauté.
+- **Admin**: sign-in and one tab, **Add Salon Details** (salon name, name of the person, WhatsApp number, optional email and description). Saving a new salon sends it to Salon de Beauté.
 - **Salon de Beauté**: each salon's contact details and today's timeline for each stylist, with guest check-in
 - **die Gäste**: online booking (treatment → salon → date and time → confirm)
 
