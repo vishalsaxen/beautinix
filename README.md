@@ -4,24 +4,50 @@ Beauty clinic appointment app. This repository holds the first HTML prototype an
 
 ## App sections
 
-- **Admin**: sign-in and one tab, **Add Salon Details** (salon name, name of the person, WhatsApp number, optional email and description). Saving a new salon sends it to Salon de Beauté.
-- **Salon de Beauté**: each salon's contact details and today's timeline for each stylist, with guest check-in
-- **die Gäste**: online booking (treatment → salon → date and time → confirm)
+- **Admin**: sign-in and one tab, **Add Salon Details**: salon name, name of the person, WhatsApp number, email (required; the owner signs in and resets their password with it), state, city and PIN code. Saving stores the salon in the database, creates a unique code (for example `BX-7KQ2MP`) and opens WhatsApp with an invite to the owner containing the code, salon name and person's name. The admin can also delete a salon, which removes it, its code and its bookings.
+- **Salon de Beauté**: on first visit the owner must agree to the [terms for salons](TERMS.md) and the platform fee of ₹200 per month; the acceptance is saved on their salon. Then the owner taps **Create account**, enters the code, checks the details the admin added and sets a password. After that they sign in with their email and password. Signed in, they add their services with prices (for example Facial ₹450), set **Available**, **Busy** or **Not available**, see guest bookings as they come in, and use **Edit details** to change the salon name, person, WhatsApp, state, city and PIN (email stays fixed because it's the sign-in).
+- **die Gäste**: anyone can see each salon's name and availability; location, WhatsApp, services and prices are masked (`*****`) until the guest creates an account (name, WhatsApp, email, password). Signed-in guests can book a service and time and see their bookings.
 
-The Admin tab is locked for salon staff and guests until the admin signs in.
+WhatsApp numbers always start with a fixed +91 followed by exactly 10 digits. **Forgot password?** emails a reset link (Firebase sends it). The Admin tab is locked for salon owners and guests.
 
-Open `index.html` in a browser to try it, or visit https://vishalsaxen.github.io/beautinix/ once GitHub Pages is on (Settings → Pages → Deploy from a branch → `main`, `/ (root)`). Everything in it is sample data. Prices are in rupees (₹).
+Live app: https://vishalsaxen.github.io/beautinix/ (GitHub Pages, branch `main`, `/ (root)`). Prices are in rupees (₹). "Pallavi's Paradise" is a built-in sample listing and can't be booked.
 
-## Admin login (prototype)
+## Firebase
+
+Sign-in uses Firebase Authentication (email and password) and data is stored in Cloud Firestore, project `beautinix`.
+
+| Collection | What's in it | Who can read it |
+| --- | --- | --- |
+| `salons` | Full salon details, services, availability, owner | Signed-in users |
+| `listings` | Salon name and availability only | Everyone |
+| `invites` | Sign-up codes | Anyone with the code; only the admin can list them |
+| `guests` | Guest name, WhatsApp, email | The guest and the admin |
+| `bookings` | Guest bookings | The guest, the salon owner and the admin |
+
+`firestore.rules` holds the security rules. One-time setup in the [Firebase console](https://console.firebase.google.com/project/beautinix):
+
+1. **Authentication → Get started → Sign-in method → Email/Password → Enable.**
+2. **Authentication → Users → Add user** with the admin login below. Do this right after step 1: the admin is whoever holds this email in Firebase.
+3. **Firestore Database → Rules**: paste `firestore.rules` and **Publish**.
+
+To test locally against the Firebase emulator: `firebase emulators:start --only auth,firestore`, serve the folder on `localhost` and open `http://localhost:<port>/?emulator`.
+
+## Admin login
 
 | Login ID | Password |
 | --- | --- |
 | `admin@beautinix.de` | `Beautinix@2026` |
 
-This starting login is hard-coded in `index.html`. "Forgot password?" lets the admin set a new password with a 6-digit code. In the prototype the code is shown on screen and the new password is saved only in that browser.
+This is the Firebase user you add in step 2 above. Change its password in the Firebase console (Authentication → Users) once real salons use the app. Password reset links go to the admin email, so `admin@beautinix.de` only receives them if that inbox exists.
 
-> This repository is public, so anyone can read this password. Change it before the app holds real data, and move the password check to a server when the backend is built.
+> This repository is public, so anyone can read this password. Change it before the app holds real data.
 
 ## Logos
 
 `assets/logo/` holds the Beautinix and Beautizo logos as SVG and transparent PNG.
+
+## Not done yet
+
+- **WhatsApp:** the app opens WhatsApp with the invite filled in, and the admin presses Send. Sending automatically needs the WhatsApp Business API.
+- **Deleted owners:** deleting a salon removes its data, but the owner's sign-in stays in Firebase Authentication. Remove it there (Authentication → Users) if needed.
+- **Double bookings:** two guests can book the same time slot; the salon sees both.
