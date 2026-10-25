@@ -61,6 +61,14 @@ button{cursor:pointer}
 .contact a,.contact span{display:inline-flex;align-items:center;gap:6px;color:var(--fg);text-decoration:none}
 .contact a:hover{color:var(--accent)}
 .req{color:var(--accent)}
+.invite .code{font-size:1.9rem;font-weight:500;letter-spacing:.14em;color:var(--gold)}
+.msg{white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;margin:0;font-family:var(--sans);font-size:13px;color:var(--fg);overflow-wrap:anywhere}
+a.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
+a.btn.primary{color:var(--accent-ink)}
+.small{font-size:12px;color:var(--muted)}
+.ro{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:13px}
+.ro dt{color:var(--muted)}.ro dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+
 .hint{font-weight:500;color:var(--dim)}
 .field-err{color:var(--bad);font-size:12px;font-weight:600}
 textarea.input{resize:vertical;min-height:90px}
@@ -214,6 +222,7 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
   .site{display:none}
   .seg{width:100%}.seg button{flex:1;padding:9px 10px}
   .ghost-btn{margin-left:0}
+  .top-actions .ghost-btn .lbl{display:none}
   .next-side{flex-direction:row;align-items:center;width:100%;justify-content:space-between}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -266,7 +275,7 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
   </div>
   <div class="top-actions">
     <button class="icon-btn" id="refresh" aria-label="Refresh"><svg class="ico"><use href="#i-refresh"/></svg></button>
-    <button class="ghost-btn" id="signin" hidden><svg class="ico"><use href="#i-lock"/></svg>Admin sign-in</button>
+    <button class="ghost-btn" id="signin" aria-label="Admin sign-in" hidden><svg class="ico"><use href="#i-lock"/></svg><span class="lbl">Admin sign-in</span></button>
     <button class="icon-btn" id="logout" aria-label="Sign out" hidden><svg class="ico"><use href="#i-logout"/></svg></button>
   </div>
 </div></header>
@@ -369,23 +378,49 @@ const SECTIONS=["admin","salon","guests"];
 const CHIP={admin:"Admin",salon:"Salon",guests:"Guest"};
 let current="admin";
 const isAdmin=()=>!!sess.get("bx-admin");
+const salonUser=()=>{const id=sess.get("bx-salon-user");return id?salon(id)||null:null};
 function showSection(sec){
   if(!SECTIONS.includes(sec))sec="admin";current=sec;
   // Salon staff and guests can't open Admin: the tab is locked until the admin signs in.
   $("#tab-admin").disabled=!isAdmin();
   $("#tab-admin").querySelector(".lock-ico").toggleAttribute("hidden",isAdmin());
-  $("#signin").hidden=isAdmin()||sec==="admin";
+  $("#signin").hidden=isAdmin()||!!salonUser()||sec==="admin";
   SECTIONS.forEach(s=>{$("#sec-"+s).hidden=s!==sec;$("#tab-"+s).setAttribute("aria-selected",s===sec)});
   $("#role-chip").textContent=CHIP[sec];
   ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
-  $("#logout").hidden=!isAdmin();
+  $("#logout").hidden=!(isAdmin()||salonUser());
   try{history.replaceState(null,"","#"+sec)}catch(e){}
   window.scrollTo(0,0);
 }
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>showSection(b.dataset.sec));
 $("#refresh").onclick=()=>{showSection(current);toast("Up to date")};
-$("#logout").onclick=()=>{sess.set("bx-admin",null);authView="login";showSection("salon");toast("Signed out. Admin is locked.")};
+$("#logout").onclick=()=>{sess.set("bx-admin",null);sess.set("bx-salon-user",null);authView="login";salonAuth="login";showSection("salon");toast("Signed out")};
 $("#signin").onclick=()=>{authView="login";authErr="";showSection("admin")};
+
+// ---------- Shared helpers for accounts ----------
+const APP_URL="https://vishalsaxen.github.io/beautinix/";
+const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const otp=()=>String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000);
+async function hashPw(pw){
+  const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("beautinix:"+pw));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+function newCode(){
+  const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let c;
+  do{c="BX-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),n=>A[n%A.length]).join("")}while(SALONS.some(s=>s.code===c));
+  return c;
+}
+function pwProblem(p,p2){
+  if(p.length<8)return "Use at least 8 characters for the password.";
+  if(p!==p2)return "The two passwords don't match.";
+  return "";
+}
+function maskEmail(e){const[u,d]=e.split("@");return u.slice(0,1)+"•••••@"+d}
+function inviteText(s){
+  return `Hello ${s.person},\n\nWelcome to Beautinix! ${s.name} has been added by our team.\n\nYour unique code: ${s.code}\n\nCreate your salon account in Salon de Beauté: ${APP_URL}#salon\nTap "Create account", enter the code and set your password.`;
+}
+const waLink=s=>`https://wa.me/${s.wa.replace(/[^0-9]/g,"")}?text=${encodeURIComponent(inviteText(s))}`;
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Message copied")}catch(e){toast("Couldn't copy. Select the message and copy it instead.")}}
 
 // ---------- Admin sign-in ----------
 // Prototype only: the starting credentials live in this page. A real app must check them on a server.
@@ -396,7 +431,7 @@ let authView="login",resetCode=null,authErr="";
 function renderAuth(el){
   let body="";
   if(authView==="login"){
-    body=`<div class="auth-head"><h1>Admin sign-in</h1><p>Manage salons, staff, services and bookings.</p></div>
+    body=`<div class="auth-head"><h1>Admin sign-in</h1><p>Add salons and send them their sign-up code.</p></div>
     <form class="panel" id="login-form" novalidate>
       <label class="f">Login ID<input class="input" id="login-id" type="email" autocomplete="username" placeholder="you@example.com" required></label>
       <label class="f">Password<span class="pw"><input class="input" id="login-pw" type="password" autocomplete="current-password" required><button type="button" id="pw-show">Show</button></span></label>
@@ -413,7 +448,7 @@ function renderAuth(el){
       <button class="link" type="button" id="to-login">Back to sign-in</button>
     </form>`;
   } else {
-    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to a•••••@beautinix.de. It's valid for 10 minutes.</p></div>
+    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(ADMIN_ID)}. It's valid for 10 minutes.</p></div>
     <p class="note">Prototype: no email is sent. Your code is <b>${resetCode}</b></p>
     <form class="panel" id="reset-form" novalidate>
       <label class="f">6-digit code<input class="input mono" id="rp-code" inputmode="numeric" maxlength="6" required></label>
@@ -434,13 +469,12 @@ function renderAuth(el){
     else{authErr="That login ID and password don't match. Check them, or reset your password.";renderAdmin()}};
   const ff=$("#forgot-form");if(ff)ff.onsubmit=e=>{e.preventDefault();
     if($("#fp-id").value.trim().toLowerCase()!==ADMIN_ID){authErr="We don't have an admin account with that login ID.";renderAdmin();return}
-    resetCode=String(Math.floor(100000+Math.random()*900000));go("reset")};
+    resetCode=otp();go("reset")};
   const rf=$("#reset-form");if(rf)rf.onsubmit=e=>{e.preventDefault();
     const p=$("#rp-pw").value;
     if($("#rp-code").value.trim()!==resetCode)authErr="That code isn't right. Check the 6 digits and try again.";
-    else if(p.length<8)authErr="Use at least 8 characters for the new password.";
-    else if(p!==$("#rp-pw2").value)authErr="The two passwords don't match.";
-    else{store.set("bx-admin-pw",p);resetCode=null;authView="login";authErr="";toast("Password changed. Sign in with your new password.");renderAdmin();return}
+    else authErr=pwProblem(p,$("#rp-pw2").value);
+    if(!authErr){store.set("bx-admin-pw",p);resetCode=null;authView="login";toast("Password changed. Sign in with your new password.")}
     renderAdmin()};
 }
 
@@ -449,31 +483,58 @@ let adminView="add";
 const ADMIN_TABS=[["add","Add Salon Details","plus"]];
 function renderAdmin(){
   const el=$("#sec-admin");
-  if(!sess.get("bx-admin")){$("#logout").hidden=true;renderAuth(el);return}
+  if(!isAdmin()){$("#logout").hidden=!salonUser();renderAuth(el);return}
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
   ({add:aAdd})[adminView]($("#pane"));
 }
 function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`}
-// Admin input page: a new salon goes straight to the Salon de Beauté tab.
-let addErr={},addDraft={};
+
+const STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
+
+// Admin input page: saving creates a unique code and opens WhatsApp with the invite for the salon owner.
+let addErr={},addDraft={},lastInvite=null;
+function invitePanel(s){
+  return `<div class="panel invite" id="invite">
+    <span class="eyebrow">Invite ready</span>
+    <h2>Send ${esc(s.person)} their sign-up code</h2>
+    <div class="code mono" aria-label="Unique code">${s.code}</div>
+    <pre class="msg" id="invite-msg">${esc(inviteText(s))}</pre>
+    <div class="row">
+      <a class="btn primary" href="${waLink(s)}" target="_blank" rel="noopener">${icon("chat")} Send on WhatsApp to ${esc(s.wa)}</a>
+      <button class="btn" type="button" id="copy-msg">Copy message</button>
+    </div>
+    <p class="small">WhatsApp opens with this message filled in. Press Send there to deliver it.</p>
+  </div>`;
+}
 function aAdd(el){
   const v=k=>esc(addDraft[k]||"");
   const e=k=>addErr[k]?`<span class="field-err" role="alert">${addErr[k]}</span>`:"";
-  el.innerHTML=head("Add Salon Details","Fill in the salon's details. When you save, it appears in Salon de Beauté.")+`
-  <form class="panel" id="add-form" novalidate style="max-width:720px">
+  const invited=SALONS.filter(s=>s.added).slice().reverse();
+  const inv=lastInvite&&salon(lastInvite);
+  el.innerHTML=head("Add Salon Details","Saving creates a unique code. Send it to the salon owner on WhatsApp so they can create their account in Salon de Beauté.")+
+  (inv?invitePanel(inv):"")+`
+  <form class="panel" id="add-form" novalidate style="max-width:760px">
     <div class="form-grid" style="align-items:start">
       <label class="f"><span>Salon name <span class="req">*</span></span><input class="input" id="ad-name" value="${v("name")}" placeholder="Glow Studio Bandra" required>${e("name")}</label>
       <label class="f"><span>Name of the person <span class="req">*</span></span><input class="input" id="ad-person" value="${v("person")}" placeholder="Ananya Sharma" autocomplete="name" required>${e("person")}</label>
       <label class="f"><span>WhatsApp number <span class="req">*</span></span><input class="input mono" id="ad-wa" type="tel" inputmode="tel" value="${v("wa")}" placeholder="+91 98765 43210" required>${e("wa")}</label>
-      <label class="f"><span>Email <span class="hint">(optional)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="hello@glowstudio.in" autocomplete="email">${e("email")}</label>
+      <label class="f"><span>Email <span class="req">*</span> <span class="hint">(for password OTPs)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="owner@glowstudio.in" autocomplete="email" required>${e("email")}</label>
+      <label class="f"><span>State <span class="req">*</span></span><select class="input" id="ad-state" required><option value="">Select state</option>${STATES.map(x=>`<option${addDraft.state===x?" selected":""}>${x}</option>`).join("")}</select>${e("state")}</label>
+      <label class="f"><span>City <span class="req">*</span></span><input class="input" id="ad-city" value="${v("city")}" placeholder="Mumbai" required>${e("city")}</label>
+      <label class="f"><span>PIN code <span class="req">*</span></span><input class="input mono" id="ad-pin" inputmode="numeric" maxlength="6" value="${v("pin")}" placeholder="400050" required>${e("pin")}</label>
     </div>
-    <label class="f"><span>Description <span class="hint">(optional)</span></span><textarea class="input" id="ad-desc" rows="3" placeholder="Services, timings, anything the team should know">${v("desc")}</textarea></label>
-    <div class="row"><button class="btn primary" type="submit">Save and send to Salon de Beauté</button><button class="btn" type="reset" id="ad-clear">Clear</button></div>
-  </form>`;
-  const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:$("#ad-wa").value.trim(),email:$("#ad-email").value.trim(),desc:$("#ad-desc").value.trim()}};
-  $("#ad-clear").onclick=ev=>{ev.preventDefault();addDraft={};addErr={};renderAdmin()};
+    <div class="row"><button class="btn primary" type="submit">Save and send to Salon de Beauté</button><button class="btn" type="button" id="ad-clear">Clear</button></div>
+  </form>
+  ${invited.length?`<div class="panel"><div class="panel-head"><h3>Salons you've added</h3><span>${invited.length}</span></div><div class="list">
+    ${invited.map(s=>`<div class="list-item"><div><b>${esc(s.name)}</b><div class="sub">${esc(s.person)} · ${esc(s.city)}, ${esc(s.state)} · <span class="mono">${s.code}</span></div></div>
+      <div class="row-actions">${s.status==="active"?`<span class="pill s-confirmed">Account created</span>`:`<span class="pill s-pending">Invite sent</span><a class="btn sm" href="${waLink(s)}" target="_blank" rel="noopener">Resend</a>`}</div></div>`).join("")}
+  </div></div>`:""}`;
+  if(inv)$("#copy-msg").onclick=()=>copyText(inviteText(inv));
+  const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:$("#ad-wa").value.trim(),email:$("#ad-email").value.trim().toLowerCase(),
+    state:$("#ad-state").value,city:$("#ad-city").value.trim(),pin:$("#ad-pin").value.trim()}};
+  $("#ad-clear").onclick=()=>{addDraft={};addErr={};renderAdmin()};
   $("#add-form").onsubmit=ev=>{ev.preventDefault();grab();addErr={};
     const d=addDraft;
     if(!d.name)addErr.name="Enter the salon's name.";
@@ -482,29 +543,128 @@ function aAdd(el){
     let digits=d.wa.replace(/[^0-9]/g,"");
     if(digits.length===12&&digits.startsWith("91"))digits=digits.slice(2);
     if(digits.length===11&&digits.startsWith("0"))digits=digits.slice(1);
+    const wa=`+91 ${digits.slice(0,5)} ${digits.slice(5)}`;
     if(!/^[6-9][0-9]{9}$/.test(digits))addErr.wa="Enter a 10-digit Indian mobile number, for example +91 98765 43210.";
-    if(d.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email))addErr.email="Check the email address, or leave it empty.";
+    else if(SALONS.some(x=>x.wa===wa))addErr.wa="Another salon already uses this WhatsApp number.";
+    if(!d.email)addErr.email="Enter an email address. The owner gets password codes there.";
+    else if(!EMAIL_RE.test(d.email))addErr.email="Check the email address, for example owner@glowstudio.in.";
+    else if(SALONS.some(x=>(x.email||"").toLowerCase()===d.email))addErr.email="Another salon already uses this email address.";
+    if(!d.state)addErr.state="Choose the state.";
+    if(!d.city)addErr.city="Enter the city.";
+    if(!/^[1-9][0-9]{5}$/.test(d.pin))addErr.pin="Enter the 6-digit PIN code.";
     if(Object.keys(addErr).length){renderAdmin();return}
-    const n={id:"s"+Date.now(),added:true,name:d.name,city:"",person:d.person,wa:`+91 ${digits.slice(0,5)} ${digits.slice(5)}`,email:d.email,desc:d.desc,
-      addr:"",chairs:"–",hours:"Not set yet",rating:"–",util:0};
-    SALONS.push(n);saveAdded();addDraft={};
-    salonSel=n.id;store.set("bx-salon",n.id);
-    showSection("salon");toast(`${n.name} added to Salon de Beauté`)};
+    const n={id:"s"+Date.now(),added:true,status:"invited",code:newCode(),name:d.name,person:d.person,wa,email:d.email,state:d.state,city:d.city,pin:d.pin,
+      addr:`${d.city}, ${d.state} ${d.pin}`,chairs:"–",hours:"Not set yet",rating:"–",util:0};
+    SALONS.push(n);saveAdded();addDraft={};lastInvite=n.id;
+    renderAdmin();
+    // Open WhatsApp with the invite. Browsers may block this; the button in the panel always works.
+    try{window.open(waLink(n),"_blank","noopener")}catch(e){}
+    toast(`Saved. Code ${n.code} is ready to send to ${n.person}.`)};
 }
+
 // ---------- Salon de Beauté ----------
 let salonSel=store.get("bx-salon","ber");
+let salonAuth="login",salonErr="",salonOtp=null,salonOtpFor=null,claimId=null;
+function renderSalonAuth(el){
+  const err=salonErr?`<p class="err" role="alert">${salonErr}</p>`:"";
+  let body="";
+  if(salonAuth==="login"){
+    body=`<div class="auth-head"><h1>Salon sign-in</h1><p>See your salon's bookings for today.</p></div>
+    <form class="panel" id="s-login" novalidate>
+      <label class="f">Email<input class="input" id="sl-email" type="email" autocomplete="username" placeholder="owner@yoursalon.in" required></label>
+      <label class="f">Password<input class="input" id="sl-pw" type="password" autocomplete="current-password" required></label>
+      ${err}
+      <button class="btn primary block" type="submit">Sign in</button>
+      <button class="link" type="button" data-go="forgot">Forgot password?</button>
+    </form>
+    <div class="panel" style="align-items:center;text-align:center"><p>New salon? Use the code we sent you on WhatsApp.</p><button class="btn" type="button" data-go="claim">Create account</button></div>`;
+  } else if(salonAuth==="claim"){
+    body=`<div class="auth-head"><h1>Create your salon account</h1><p>Enter the unique code from your WhatsApp message.</p></div>
+    <form class="panel" id="s-claim" novalidate>
+      <label class="f">Unique code<input class="input mono" id="sc-code" placeholder="BX-7KQ2MP" autocapitalize="characters" required></label>
+      ${err}
+      <button class="btn primary block" type="submit">Continue</button>
+      <button class="link" type="button" data-go="login">I already have an account</button>
+    </form>`;
+  } else if(salonAuth==="claim2"){
+    const s=salon(claimId);
+    body=`<div class="auth-head"><h1>${esc(s.name)}</h1><p>Check the details our team added, then choose your password.</p></div>
+    <form class="panel" id="s-claim2" novalidate>
+      <dl class="ro"><dt>Name</dt><dd>${esc(s.person)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd><dt>Email</dt><dd>${esc(s.email)}</dd><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd></dl>
+      <p class="small">Something wrong? Ask the Beautinix team to correct it before you continue.</p>
+      <label class="f">Password<input class="input" id="sc-pw" type="password" autocomplete="new-password" required></label>
+      <label class="f">Repeat password<input class="input" id="sc-pw2" type="password" autocomplete="new-password" required></label>
+      ${err}
+      <button class="btn primary block" type="submit">Create account</button>
+      <button class="link" type="button" data-go="claim">Use a different code</button>
+    </form>`;
+  } else if(salonAuth==="forgot"){
+    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your salon's email and we'll send a 6-digit code to it.</p></div>
+    <form class="panel" id="s-forgot" novalidate>
+      <label class="f">Email<input class="input" id="sf-email" type="email" autocomplete="username" placeholder="owner@yoursalon.in" required></label>
+      ${err}
+      <button class="btn primary block" type="submit">Send code</button>
+      <button class="link" type="button" data-go="login">Back to sign-in</button>
+    </form>`;
+  } else {
+    const s=salon(salonOtpFor);
+    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(s.email)}. It's valid for 10 minutes.</p></div>
+    <p class="note">Prototype: no email is sent. Your code is <b>${salonOtp}</b></p>
+    <form class="panel" id="s-reset" novalidate>
+      <label class="f">6-digit code<input class="input mono" id="sr-code" inputmode="numeric" maxlength="6" required></label>
+      <label class="f">New password<input class="input" id="sr-pw" type="password" autocomplete="new-password" required></label>
+      <label class="f">Repeat new password<input class="input" id="sr-pw2" type="password" autocomplete="new-password" required></label>
+      ${err}
+      <button class="btn primary block" type="submit">Save new password</button>
+      <button class="link" type="button" data-go="login">Back to sign-in</button>
+    </form>`;
+  }
+  el.innerHTML=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${body}</div>`;
+  const go=v=>{salonAuth=v;salonErr="";renderSalon()};
+  el.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+  const fail=m=>{salonErr=m;renderSalon()};
+  const byEmail=m=>SALONS.find(x=>x.added&&x.status==="active"&&(x.email||"").toLowerCase()===m.trim().toLowerCase());
+  const f1=$("#s-login");if(f1)f1.onsubmit=async e=>{e.preventDefault();
+    const s=byEmail($("#sl-email").value);
+    if(!s||s.pwHash!==await hashPw($("#sl-pw").value))return fail("That email and password don't match. Check them, or reset your password.");
+    sess.set("bx-salon-user",s.id);salonErr="";showSection("salon");toast(`Welcome, ${s.person}`)};
+  const f2=$("#s-claim");if(f2)f2.onsubmit=e=>{e.preventDefault();
+    const c=$("#sc-code").value.trim().toUpperCase().replace(/\s+/g,"");
+    const s=SALONS.find(x=>x.code===c||x.code===("BX-"+c.replace(/^BX-?/,"")));
+    if(!s)return fail("We can't find that code. Check it against your WhatsApp message.");
+    if(s.status==="active")return fail("This code has already been used. Sign in with your email instead.");
+    claimId=s.id;go("claim2")};
+  const f3=$("#s-claim2");if(f3)f3.onsubmit=async e=>{e.preventDefault();
+    const p=$("#sc-pw").value,m=pwProblem(p,$("#sc-pw2").value);if(m)return fail(m);
+    const s=salon(claimId);s.pwHash=await hashPw(p);s.status="active";saveAdded();
+    sess.set("bx-salon-user",s.id);salonAuth="login";salonErr="";showSection("salon");toast("Account created. You're signed in.")};
+  const f4=$("#s-forgot");if(f4)f4.onsubmit=e=>{e.preventDefault();
+    const s=byEmail($("#sf-email").value);
+    if(!s)return fail("We don't have a salon account with that email.");
+    salonOtpFor=s.id;salonOtp=otp();go("reset")};
+  const f5=$("#s-reset");if(f5)f5.onsubmit=async e=>{e.preventDefault();
+    if($("#sr-code").value.trim()!==salonOtp)return fail("That code isn't right. Check the 6 digits and try again.");
+    const p=$("#sr-pw").value,m=pwProblem(p,$("#sr-pw2").value);if(m)return fail(m);
+    const s=salon(salonOtpFor);s.pwHash=await hashPw(p);saveAdded();salonOtp=null;
+    salonAuth="login";salonErr="";renderSalon();toast("Password changed. Sign in with your new password.")};
+}
 function renderSalon(){
-  const s=salon(salonSel)||SALONS[0];const team=STAFF.filter(t=>t.salon===s.id);
+  const el=$("#sec-salon");
+  const me=salonUser();
+  if(!me&&!isAdmin()){renderSalonAuth(el);return}
+  // A salon owner sees only their salon; the signed-in admin can switch between salons.
+  const s=me||salon(salonSel)||SALONS[0];const team=STAFF.filter(t=>t.salon===s.id);
   const start=9,end=20,hourPx=60,headH=58;
   const ap=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled");
   const top=t=>mins(t)-start*60;
-  $("#sec-salon").innerHTML=nextCard(ap,"Next guest · "+esc(place(s)))+`
+  el.innerHTML=nextCard(ap,"Next guest · "+esc(place(s)))+`
   <div class="pane-head"><div><h1>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h1><p>Today · ${ap.length} appointments${team.length?" · tap one to check the guest in":""}</p></div>
-    <div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${SALONS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><span class="sample">Sample data</span></div></div>
+    ${me?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${SALONS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><span class="sample">Sample data</span></div>`}</div>
   <div class="panel"><div class="contact">
     ${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}
     ${s.wa?`<a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>`:""}
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
+    ${s.added?`<span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>`:""}
   </div>${s.desc?`<p style="color:var(--muted)">${esc(s.desc)}</p>`:""}</div>
   <div class="timeline"><div class="tl" style="grid-template-columns:64px repeat(${Math.max(team.length,1)},minmax(170px,1fr))">
     <div class="hcell hours" style="height:${headH}px"></div>${team.map(t=>`<div class="hcell" style="height:${headH}px">${t.name}<small>${t.role}</small></div>`).join("")||`<div class="hcell" style="height:${headH}px">No staff yet</div>`}
@@ -512,9 +672,9 @@ function renderSalon(){
     ${team.map(t=>`<div class="col" style="height:${(end-start)*hourPx}px">${ap.filter(a=>a.staff===t.id).map(a=>{const v=svc(a.svc);return `<button class="appt ${a.status}" style="top:${top(a.time)}px;height:${v.min-4}px" data-id="${a.id}"><b>${a.time} ${esc(a.guest)}</b><span>${v.name}${a.status==="checkedin"?" · checked in":a.status==="pending"?" · awaiting confirmation":""}</span></button>`}).join("")}</div>`).join("")}
     <div class="now" style="top:${headH+top(NOW)}px" aria-hidden="true"></div>
   </div></div>`;
-  $("#salon-pick").value=s.id;
-  $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()};
-  $("#sec-salon").querySelectorAll(".appt").forEach(b=>b.onclick=()=>{const a=APPTS.find(x=>x.id==b.dataset.id);
+  if(!me){$("#salon-pick").value=s.id;
+    $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
+  el.querySelectorAll(".appt").forEach(b=>b.onclick=()=>{const a=APPTS.find(x=>x.id==b.dataset.id);
     if(a.status==="checkedin"){a.status="confirmed";toast(`${a.guest}: check-in undone`)}else{a.status="checkedin";toast(`${a.guest} checked in`)}renderSalon()});
 }
 
