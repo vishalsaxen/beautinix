@@ -199,6 +199,14 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
 .fee-card>div{display:flex;flex-direction:column;align-items:center;min-width:92px}.fee-card b{font-size:30px;line-height:1.1;color:var(--fg)}.fee-card small{color:var(--muted)}
 .fee-card p{margin:0;color:var(--muted);font-size:13px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer}.check input{width:18px;height:18px;accent-color:var(--accent);margin:2px 0 0;flex:none}
+.alerts-box{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border:1px dashed var(--line);border-radius:var(--r-sm);padding:10px 12px}
+.alerts-box.on{border-style:solid;border-color:rgb(61 214 140 / .35)}.alerts-box p{margin:0;display:inline-flex;gap:6px;align-items:center}
+.list-item.fresh{background:var(--accent-soft);border-radius:var(--r-sm);padding-left:8px;padding-right:8px}
+.alert-banner{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:60;width:min(520px,calc(100% - 32px));display:flex;gap:12px;align-items:center;justify-content:space-between;
+  background:var(--surface);border:1px solid var(--accent-line);border-left:4px solid var(--accent);border-radius:var(--r);padding:12px 14px;box-shadow:0 12px 32px rgb(0 0 0 / .45);animation:bx-pop .3s ease}
+.alert-banner>div{display:flex;gap:10px;align-items:flex-start}.alert-banner .ico{color:var(--accent);width:22px;height:22px;flex:none;margin-top:2px}
+.alert-banner p{margin:2px 0 0;color:var(--muted);font-size:13px}
+@keyframes bx-pop{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .note{background:var(--gold-soft);border:1px solid rgb(245 165 36 / .35);color:var(--gold);border-radius:var(--r-sm);padding:10px 12px;font-size:13px}
 .note b{font-family:var(--mono);letter-spacing:.2em}
 
@@ -390,7 +398,11 @@ function attach(){
     listen(col("bookings"),s=>{data.bookings=docs(s);rerender()});
     listen(col("guests"),s=>{data.guests=docs(s);rerender("admin")});
   }
-  if(r==="owner")listen(col("bookings").where("ownerUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("salon")});
+  if(r==="owner"){let first=true;listen(col("bookings").where("ownerUid","==",me.user.uid),s=>{
+    data.bookings=docs(s);
+    // The first snapshot is the existing list; after that every added booking is a new one.
+    if(!first)s.docChanges().forEach(c=>{if(c.type==="added")bookingAlert({id:c.doc.id,...c.doc.data()},"new")});
+    first=false;rerender("salon")})}
   if(r==="guest")listen(col("bookings").where("guestUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("guests")});
 }
 async function resolve(u){
@@ -924,11 +936,13 @@ function ownerPanels(s,editable){
     <p class="small">Guests see this next to ${esc(s.name)} in die Gäste.</p>
     <div class="avail" role="group" aria-label="Availability">${Object.entries(AVAIL).map(([k,[l]])=>`<button class="avail-btn a-${k}" data-avail="${k}" aria-pressed="${(s.availability||"available")===k}" ${editable?"":"disabled"}>${l}</button>`).join("")}</div>
     <div class="panel-head" style="margin-top:8px"><h3>Bookings</h3><span>${mine.length}</span></div>
-    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item"><div><b>${esc(b.guest)}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
+    ${editable?alertsBox():""}
+    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item${freshIds.has(b.id)?" fresh":""}"><div><b>${esc(b.guest)}</b>${freshIds.has(b.id)?'<span class="new-badge">New</span>':""}<div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
       :`<p class="small">No bookings yet. They appear here when guests book.</p>`}
   </div></div>`;
 }
 function bindOwner(el,s){
+  $("#alerts-on")&&($("#alerts-on").onclick=enableAlerts);$("#alerts-test")&&($("#alerts-test").onclick=()=>buzz());
   const ref=col("salons").doc(s.id),services=s.services||[];
   const save=(patch,msg)=>ref.update(patch).then(()=>msg&&toast(msg)).catch(e=>{console.error(e);toast(errMsg(e));renderSalon()});
   el.querySelectorAll("[data-avail]").forEach(b=>b.onclick=()=>{const a=b.dataset.avail;
@@ -949,6 +963,57 @@ function bindOwner(el,s){
     save({services:[...services,{id:"v"+Date.now(),name:nm,price:+pr}]},`${nm} added at ${inr(+pr)}`)};
   bindDigits(el);
 }
+
+
+// ---------- Booking alerts (salon owner) ----------
+// While Salon de Beauté is open, a new booking sounds a buzzer, vibrates the phone, shows a banner and,
+// if allowed, a system notification. A second buzzer sounds 15 minutes before each booked guest is due.
+let audioCtx=null,alertsOn=store.get("bx-alerts","")==="on";
+const freshIds=new Set();
+const notifyOk=()=>"Notification" in window&&Notification.permission==="granted";
+function unlockAudio(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
+addEventListener("pointerdown",()=>{if(alertsOn)unlockAudio()},true);
+function buzz(){
+  unlockAudio();if(!audioCtx)return;
+  const t0=audioCtx.currentTime+0.05;
+  for(let i=0;i<6;i++){const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type="square";o.frequency.value=i%2?660:880;
+    g.gain.setValueAtTime(0.0001,t0+i*0.28);g.gain.exponentialRampToValueAtTime(0.25,t0+i*0.28+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+i*0.28+0.24);
+    o.connect(g).connect(audioCtx.destination);o.start(t0+i*0.28);o.stop(t0+i*0.28+0.26)}
+  try{navigator.vibrate&&navigator.vibrate([400,150,400,150,400])}catch(e){}
+}
+async function enableAlerts(){
+  alertsOn=true;store.set("bx-alerts","on");unlockAudio();
+  if("Notification" in window&&Notification.permission==="default"){try{await Notification.requestPermission()}catch(e){}}
+  buzz();toast("Booking alerts are on");rerender("salon");
+}
+function alertsBox(){
+  if(!alertsOn)return `<div class="alerts-box"><p class="small">Turn on booking alerts to hear a buzzer and get a notification when a guest books.</p><button class="btn sm primary" id="alerts-on">${icon("bell")} Turn on alerts</button></div>`;
+  return `<div class="alerts-box on"><p class="small">${icon("bell")} Alerts on${notifyOk()?" with notifications":""}. Keep this page open to hear them.</p><button class="btn sm" id="alerts-test">Test buzzer</button></div>`;
+}
+const bookingWhen=b=>`${b.date===ymd(new Date())?"today":fmt(dayOf(b.date),{weekday:"short",day:"numeric",month:"short"})} at ${b.time}`;
+function bookingAlert(b,kind,left){
+  const title=kind==="new"?`New booking: ${b.guest}`:`${b.guest} is due at ${b.time}`;
+  const body=kind==="new"?`${b.service} (${inr(b.price)}), ${bookingWhen(b)}. WhatsApp ${b.wa}`:`${b.service}, ${left?`in ${left} minute${left===1?"":"s"}`:"now"}. WhatsApp ${b.wa}`;
+  if(kind==="new")freshIds.add(b.id);
+  if(alertsOn)buzz();
+  showBanner(title,body);
+  if(alertsOn&&notifyOk()){try{const n=new Notification(title,{body,tag:"bx-"+kind+"-"+b.id,requireInteraction:true});n.onclick=()=>{focus();n.close()}}catch(e){}}
+}
+function showBanner(title,body){
+  let el=$("#alert-banner");
+  if(!el){el=document.createElement("div");el.id="alert-banner";el.className="alert-banner";el.setAttribute("role","alert");document.body.appendChild(el)}
+  el.innerHTML=`<div>${icon("bell")}<div><b>${esc(title)}</b><p>${esc(body)}</p></div></div><button class="btn sm" type="button">OK</button>`;
+  el.hidden=false;el.querySelector("button").onclick=()=>{el.hidden=true};
+}
+// Reminder 15 minutes before each of today's bookings.
+const reminded=new Set();
+setInterval(()=>{
+  if(me.role!=="owner")return;
+  const n=new Date(),today=ymd(n),nowM=n.getHours()*60+n.getMinutes();
+  data.bookings.forEach(b=>{const left=mins(b.time)-nowM;
+    if(b.date===today&&left>=0&&left<=15&&!reminded.has(b.id)){reminded.add(b.id);bookingAlert(b,"due",left)}});
+},30000);
 
 // ---------- die Gäste ----------
 // Everyone sees each salon's name and availability. Location, WhatsApp, services and prices stay masked until the guest signs in.
@@ -993,11 +1058,11 @@ function guestAuthView(){
       ${err}<button class="btn primary block" type="submit">Save</button></form>`;
 }
 function salonCard(s,open){
-  const off=s.availability==="unavailable",services=s.services||[],g=guestUser();
+  const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}${s.sample?' <span class="sample">Sample</span>':""}</h3>${availPill(s)}</div>
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${inr(v.price)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
-      ${s.sample?`<button class="btn" disabled>Sample salon, can't be booked</button>`:g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?"Not taking bookings":"Book"}</button>`:""}`
+      ${s.sample?`<button class="btn" disabled>Sample salon, can't be booked</button>`:g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
     :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
   </article>`;
@@ -1017,7 +1082,8 @@ function bookingView(g){
     <div class="slots">${times.map(t=>{const off=gb.day===0&&mins(t)<=n.getHours()*60+n.getMinutes();return `<button class="slot" data-time="${t}" aria-pressed="${gb.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>
     <div class="panel summary"><dl><dt>Name</dt><dd>${esc(g.name)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(g.wa)}</dd><dt>Service</dt><dd>${v?`${esc(v.name)} · ${inr(v.price)}`:"Choose a service"}</dd><dt>When</dt><dd>${gb.time?`${fmt(days()[gb.day],{weekday:"short",day:"numeric",month:"short"})}, ${gb.time}`:"Choose a time"}</dd></dl>
       ${guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:""}
-      <button class="btn primary block" id="gb-confirm" ${v&&gb.time?"":"disabled"}>Book appointment</button></div>`;
+      ${s.availability&&s.availability!=="available"?`<p class="err" role="alert">${esc(s.name)} just changed to ${AVAIL[s.availability][0].toLowerCase()}. You can book again when it's available.</p>`:""}
+      <button class="btn primary block" id="gb-confirm" ${v&&gb.time&&(s.availability||"available")==="available"?"":"disabled"}>Book appointment</button></div>`;
 }
 function myBookings(){
   const today=ymd(new Date());
