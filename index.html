@@ -445,96 +445,23 @@ function renderAuth(el){
 }
 
 // ---------- Admin ----------
-let adminView="overview";
-const ADMIN_TABS=[["overview","Overview","grid"],["add","Add salon","plus"],["appointments","Appointments","cal"],["salons","Salons","store"],["staff","Staff","users"],["services","Services","spark"],["guests","Guests","user"]];
+let adminView="add";
+const ADMIN_TABS=[["add","Add Salon Details","plus"]];
 function renderAdmin(){
   const el=$("#sec-admin");
   if(!sess.get("bx-admin")){$("#logout").hidden=true;renderAuth(el);return}
-  const pending=APPTS.filter(a=>a.status==="pending").length;
-  el.innerHTML=nextCard(APPTS,"Next appointment · all salons")+
-   `<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}${k==="appointments"&&pending?`<span class="dot" aria-label="${pending} awaiting confirmation"></span>`:""}</button>`).join("")}</nav>
+  el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
-  ({overview:aOverview,add:aAdd,appointments:aAppointments,salons:aSalons,staff:aStaff,services:aServices,guests:aGuests})[adminView]($("#pane"));
+  ({add:aAdd})[adminView]($("#pane"));
 }
-function head(title,sub,right=""){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div><div class="tools">${right}<span class="sample">Sample data</span></div></div>`}
-function weekChart(){
-  const W=520,H=190,pl=30,pb=26,pt=18,max=80,bw=44,gap=(W-pl-WEEK.length*bw)/WEEK.length;
-  const y=v=>pt+(H-pt-pb)*(1-v/max);
-  let g=`<defs><linearGradient id="barg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0479A"/><stop offset="1" stop-color="#F5A524"/></linearGradient></defs>`;
-  [0,20,40,60,80].forEach(v=>{g+=`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--dim)">${v}</text>`});
-  WEEK.forEach((w,i)=>{const x=pl+gap/2+i*(bw+gap),top=y(w.n),today=i===5;
-    g+=`<rect x="${x}" y="${top}" width="${bw}" height="${y(0)-top}" rx="8" fill="${today?"url(#barg)":"var(--surface-2)"}" stroke="${today?"none":"var(--line)"}"/>`+
-       `<text x="${x+bw/2}" y="${top-6}" text-anchor="middle" font-size="11" font-weight="700" fill="${today?"var(--fg)":"var(--muted)"}">${w.n}</text>`+
-       `<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="${today?"var(--accent)":"var(--muted)"}">${w.d}</text>`});
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bookings per day this week">${g}</svg>`;
-}
-function aOverview(el){
-  const live=APPTS.filter(a=>a.status!=="cancelled");
-  const rev=live.reduce((s,a)=>s+svc(a.svc).price,0);
-  const pending=APPTS.filter(a=>a.status==="pending");
-  el.innerHTML=head("Overview","Saturday, 25 October · all salons")+`
-  <div class="kpis">
-    <div class="kpi"><span class="k">Appointments today</span><span class="v num">${live.length}</span><span class="d up">+3 vs last Saturday</span></div>
-    <div class="kpi"><span class="k">Booked revenue today</span><span class="v num">${inr(rev)}</span><span class="d up">+8%</span></div>
-    <div class="kpi"><span class="k">Awaiting confirmation</span><span class="v num">${pending.length}</span><span class="d ${pending.length?"down":"up"}">${pending.length?"Needs a reply":"All clear"}</span></div>
-    <div class="kpi"><span class="k">Chair utilisation</span><span class="v num">76%</span><span class="d up">+4 pts</span></div>
-  </div>
-  <div class="grid2">
-    <div class="panel"><div class="panel-head"><h3>Bookings this week</h3><span>Today highlighted</span></div><div class="chart">${weekChart()}</div></div>
-    <div class="panel"><div class="panel-head"><h3>Needs your attention</h3><span>${pending.length} open</span></div>
-      <div class="list">${pending.length?pending.map(a=>`<div class="list-item"><div><b>${esc(a.guest)}</b><div class="sub">${a.time} · ${svc(a.svc).name} · ${place(salon(a.salon))}</div></div>
-        <div class="row-actions"><button class="btn sm primary" data-ok="${a.id}">Confirm</button><button class="btn sm" data-no="${a.id}">Decline</button></div></div>`).join(""):`<p style="color:var(--muted)">Nothing waiting. New booking requests show up here.</p>`}</div>
-    </div>
-  </div>
-  <div class="panel"><div class="panel-head"><h3>Salons today</h3><span>Share of chair hours booked</span></div>
-    <div class="cards">${SALONS.map(s=>{const n=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled").length;return `<div style="display:flex;flex-direction:column;gap:6px"><div class="panel-head"><b>${esc(place(s))}</b><span class="num">${n} appts · ${s.util}%</span></div><div class="bar"><i style="width:${s.util}%"></i></div></div>`}).join("")}</div>
-  </div>`;
-  el.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.ok,"confirmed");toast("Appointment confirmed")});
-  el.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.no,"cancelled");toast("Request declined")});
-}
-function setStatus(id,s){APPTS.find(a=>a.id===id).status=s;renderAdmin()}
-
-let apptFilter={salon:"all",status:"all",q:""};
-function aAppointments(el){
-  el.innerHTML=head("Appointments","Today across all salons")+`
-  <div class="tools">
-    <input class="input" id="f-q" type="search" placeholder="Search guest or service" value="${esc(apptFilter.q)}">
-    <select class="input" id="f-salon" aria-label="Salon"><option value="all">All salons</option>${SALONS.map(s=>`<option value="${s.id}">${esc(place(s))}</option>`).join("")}</select>
-    <select class="input" id="f-status" aria-label="Status"><option value="all">All statuses</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select>
-  </div>
-  <div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Guest</th><th>Service</th><th>Staff</th><th>Salon</th><th>Status</th><th class="right">Price</th><th></th></tr></thead><tbody id="appt-rows"></tbody></table></div>`;
-  $("#f-salon").value=apptFilter.salon;$("#f-status").value=apptFilter.status;
-  const draw=()=>{
-    const q=apptFilter.q.toLowerCase();
-    const rows=APPTS.filter(a=>(apptFilter.salon==="all"||a.salon===apptFilter.salon)&&(apptFilter.status==="all"||a.status===apptFilter.status)&&(!q||a.guest.toLowerCase().includes(q)||svc(a.svc).name.toLowerCase().includes(q)));
-    $("#appt-rows").innerHTML=rows.length?rows.map(a=>`<tr><td class="mono"><b>${a.time}</b></td><td>${esc(a.guest)}</td><td>${svc(a.svc).name}<span class="sub">${svc(a.svc).min} min</span></td><td>${staff(a.staff).name}</td><td>${esc(place(salon(a.salon)))}</td><td>${pill(a.status)}</td><td class="right num">${inr(svc(a.svc).price)}</td>
-      <td><div class="row-actions">${a.status==="pending"?`<button class="btn sm primary" data-ok="${a.id}">Confirm</button>`:""}${a.status!=="cancelled"?`<button class="btn sm" data-no="${a.id}">Cancel</button>`:""}</div></td></tr>`).join("")
-      :`<tr><td colspan="8" style="color:var(--muted)">No appointments match these filters.</td></tr>`;
-    $("#appt-rows").querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.ok,"confirmed");toast("Appointment confirmed")});
-    $("#appt-rows").querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>{setStatus(+b.dataset.no,"cancelled");toast("Appointment cancelled")});
-  };
-  $("#f-q").oninput=e=>{apptFilter.q=e.target.value;draw()};
-  $("#f-salon").onchange=e=>{apptFilter.salon=e.target.value;draw()};
-  $("#f-status").onchange=e=>{apptFilter.status=e.target.value;draw()};
-  draw();
-}
-function aSalons(el){
-  el.innerHTML=head("Salons",`${SALONS.length} locations`,`<button class="btn primary" id="add-salon">Add salon</button>`)+`
-
-  <div class="cards">${SALONS.map(s=>`<article class="card"><div><h3>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h3><span style="color:var(--muted);font-size:13px">${esc(s.addr||s.desc||"")}</span></div>
-    <div class="contact">${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}${s.wa?`<span class="mono">${icon("chat")}${esc(s.wa)}</span>`:""}</div>
-    <dl class="meta"><dt>Hours</dt><dd>${s.hours}</dd><dt>Chairs</dt><dd class="num">${s.chairs}</dd><dt>Staff</dt><dd class="num">${STAFF.filter(t=>t.salon===s.id).length}</dd><dt>Rating</dt><dd class="num">★ ${s.rating}</dd></dl>
-    <div style="display:flex;flex-direction:column;gap:6px"><div class="panel-head" style="font-size:12px;color:var(--muted)"><span>Booked this week</span><span class="num">${s.util}%</span></div><div class="bar"><i style="width:${s.util}%"></i></div></div></article>`).join("")}</div>`;
-  $("#add-salon").onclick=()=>{adminView="add";renderAdmin()};
-}
-
+function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`}
 // Admin input page: a new salon goes straight to the Salon de Beauté tab.
 let addErr={},addDraft={};
 function aAdd(el){
   const v=k=>esc(addDraft[k]||"");
   const e=k=>addErr[k]?`<span class="field-err" role="alert">${addErr[k]}</span>`:"";
-  el.innerHTML=head("Add salon","Fill in the salon's details. When you save, it appears in Salon de Beauté.")+`
+  el.innerHTML=head("Add Salon Details","Fill in the salon's details. When you save, it appears in Salon de Beauté.")+`
   <form class="panel" id="add-form" novalidate style="max-width:720px">
     <div class="form-grid" style="align-items:start">
       <label class="f"><span>Salon name <span class="req">*</span></span><input class="input" id="ad-name" value="${v("name")}" placeholder="Glow Studio Bandra" required>${e("name")}</label>
@@ -564,20 +491,6 @@ function aAdd(el){
     salonSel=n.id;store.set("bx-salon",n.id);
     showSection("salon");toast(`${n.name} added to Salon de Beauté`)};
 }
-function aStaff(el){
-  el.innerHTML=head("Staff",`${STAFF.length} team members`)+`<div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Salon</th><th>Specialties</th><th class="right">Today</th></tr></thead><tbody>
-  ${STAFF.map(t=>`<tr><td><b>${t.name}</b></td><td>${t.role}</td><td>${place(salon(t.salon))}</td><td>${t.skills.join(", ")}</td><td class="right"><span class="num">${t.today} of 8 slots</span><div class="bar" style="margin-top:5px"><i style="width:${t.today/8*100}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
-}
-function aServices(el){
-  el.innerHTML=head("Services","Prices and durations guests see when booking")+`<div class="tbl-wrap"><table><thead><tr><th>Service</th><th>Category</th><th class="right">Duration</th><th class="right">Price</th><th class="right">Bookable</th></tr></thead><tbody>
-  ${SERVICES.map(s=>`<tr><td><b>${s.name}</b></td><td>${s.cat}</td><td class="right num">${s.min} min</td><td class="right num">${inr(s.price)}</td><td class="right"><button class="toggle" role="switch" aria-checked="${s.active}" aria-label="${s.name} bookable" data-s="${s.id}"></button></td></tr>`).join("")}</tbody></table></div>`;
-  el.querySelectorAll(".toggle").forEach(b=>b.onclick=()=>{const s=svc(b.dataset.s);s.active=!s.active;b.setAttribute("aria-checked",s.active);toast(s.active?`${s.name} is bookable`:`${s.name} hidden from guests`)});
-}
-function aGuests(el){
-  el.innerHTML=head("Guests",`${GUESTS.length} guests on file`)+`<div class="tbl-wrap"><table><thead><tr><th>Guest</th><th>Phone</th><th class="right">Visits</th><th>Last visit</th><th>Loyalty</th><th class="right">Lifetime spend</th></tr></thead><tbody>
-  ${GUESTS.map(g=>`<tr><td><b>${g.name}</b></td><td class="mono">${g.phone}</td><td class="right num">${g.visits}</td><td>${g.last}</td><td><span class="tier">${g.tier}</span></td><td class="right num">${inr(g.spend)}</td></tr>`).join("")}</tbody></table></div>`;
-}
-
 // ---------- Salon de Beauté ----------
 let salonSel=store.get("bx-salon","ber");
 function renderSalon(){
