@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Beautinix</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -314,111 +318,138 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
 </main>
 <div class="toast" id="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
 <script>
-// ---------- Sample data (examples only) ----------
-const SALONS=[
-  {id:"ber",name:"Beautinix Berlin Mitte",city:"Berlin",addr:"Torstraße 112, 10119 Berlin",chairs:8,hours:"Mon–Sat 09:00–20:00",rating:4.8,util:82,person:"Lena Hoffmann",wa:"+91 98201 44567",email:"berlin@beautinix.de",desc:"Flagship salon with hair, skin and nail studios."},
-  {id:"muc",name:"Beautinix München Schwabing",city:"München",addr:"Leopoldstraße 41, 80802 München",chairs:6,hours:"Mon–Sat 09:00–19:00",rating:4.7,util:74,person:"Jonas Becker",wa:"+91 99300 21876",email:"",desc:""},
-  {id:"ham",name:"Beautinix Hamburg Eppendorf",city:"Hamburg",addr:"Eppendorfer Weg 210, 20251 Hamburg",chairs:5,hours:"Tue–Sat 10:00–19:00",rating:4.9,util:69,person:"Claire Dubois",wa:"+91 98450 77310",email:"hamburg@beautinix.de",desc:"Skin clinic and colour studio."},
-];
-// Sample listing so die Gäste isn't empty in the demo.
-SALONS.push({id:"pallavi",sample:true,status:"active",name:"Pallavi's Paradise",person:"Pallavi",wa:"+91 98765 43210",email:"pallavi@example.com",state:"Madhya Pradesh",city:"Indore",pin:"452001",
-  addr:"Indore, Madhya Pradesh 452001",chairs:"–",hours:"10:00–20:00",rating:"–",util:0,availability:"available",
-  services:[{id:"p1",name:"Facial",price:450},{id:"p2",name:"Eyebrow threading",price:50},{id:"p3",name:"Waxing (full arms)",price:300},{id:"p4",name:"Haircut",price:250},{id:"p5",name:"Hair spa",price:800},{id:"p6",name:"Bridal makeup",price:8000}]});
-const STAFF=[
-  {id:1,name:"Lena Hoffmann",role:"Senior stylist",salon:"ber",skills:["Cut","Balayage"],today:7},
-  {id:2,name:"Amira Haddad",role:"Aesthetician",salon:"ber",skills:["Facial","Microneedling"],today:5},
-  {id:3,name:"Sofia Rossi",role:"Nail artist",salon:"ber",skills:["Gel","Nail art"],today:6},
-  {id:4,name:"Jonas Becker",role:"Barber",salon:"muc",skills:["Cut","Beard"],today:8},
-  {id:5,name:"Mei Tanaka",role:"Lash & brow artist",salon:"muc",skills:["Lash lift","Brows"],today:4},
-  {id:6,name:"Claire Dubois",role:"Aesthetician",salon:"ham",skills:["Facial","Peel"],today:5},
-  {id:7,name:"Elif Yılmaz",role:"Stylist",salon:"ham",skills:["Colour","Blow-dry"],today:6},
-];
-const SERVICES=[
-  {id:"cut",name:"Cut & blow-dry",cat:"Hair",min:60,price:800,active:true},
-  {id:"bal",name:"Balayage",cat:"Hair",min:150,price:4500,active:true},
-  {id:"fac",name:"Hydra facial",cat:"Skin",min:60,price:2500,active:true},
-  {id:"mic",name:"Microneedling",cat:"Skin",min:75,price:5000,active:true},
-  {id:"gel",name:"Gel manicure",cat:"Nails",min:45,price:1200,active:true},
-  {id:"lash",name:"Lash lift & tint",cat:"Lashes & brows",min:50,price:1800,active:true},
-  {id:"brow",name:"Brow lamination",cat:"Lashes & brows",min:40,price:1500,active:false},
-  {id:"beard",name:"Beard trim",cat:"Hair",min:30,price:350,active:true},
-];
-const GUESTS=[
-  {name:"Hannah Schulz",phone:"+49 151 2345 6789",visits:14,last:"18 Oct",tier:"Gold",spend:28400},
-  {name:"Marco Bianchi",phone:"+49 160 9876 5432",visits:3,last:"22 Oct",tier:"—",spend:3150},
-  {name:"Aylin Demir",phone:"+49 172 1122 3344",visits:9,last:"11 Oct",tier:"Silver",spend:16800},
-  {name:"Julia Wagner",phone:"+49 176 5566 7788",visits:21,last:"24 Oct",tier:"Gold",spend:52600},
-  {name:"Noah Fischer",phone:"+49 157 3344 5566",visits:1,last:"25 Oct",tier:"New",spend:800},
-  {name:"Priya Nair",phone:"+49 159 8899 0011",visits:6,last:"15 Oct",tier:"Silver",spend:11200},
-];
-let APPTS=[
-  {id:101,time:"09:00",guest:"Julia Wagner",svc:"bal",staff:1,salon:"ber",status:"checkedin"},
-  {id:102,time:"09:30",guest:"Hannah Schulz",svc:"fac",staff:2,salon:"ber",status:"checkedin"},
-  {id:103,time:"10:00",guest:"Aylin Demir",svc:"gel",staff:3,salon:"ber",status:"confirmed"},
-  {id:104,time:"11:00",guest:"Noah Fischer",svc:"cut",staff:4,salon:"muc",status:"confirmed"},
-  {id:105,time:"11:30",guest:"Priya Nair",svc:"lash",staff:5,salon:"muc",status:"pending"},
-  {id:106,time:"12:00",guest:"Marco Bianchi",svc:"beard",staff:4,salon:"muc",status:"confirmed"},
-  {id:107,time:"13:00",guest:"Lea Neumann",svc:"mic",staff:2,salon:"ber",status:"pending"},
-  {id:108,time:"14:00",guest:"Tom Richter",svc:"cut",staff:1,salon:"ber",status:"confirmed"},
-  {id:109,time:"14:30",guest:"Sara Lindqvist",svc:"fac",staff:6,salon:"ham",status:"confirmed"},
-  {id:110,time:"15:00",guest:"Emma Koch",svc:"gel",staff:3,salon:"ber",status:"cancelled"},
-  {id:111,time:"16:00",guest:"Mila Braun",svc:"cut",staff:7,salon:"ham",status:"confirmed"},
-  {id:112,time:"17:00",guest:"Ben Wolf",svc:"cut",staff:1,salon:"ber",status:"pending"},
-];
-const WEEK=[{d:"Mon",n:38},{d:"Tue",n:44},{d:"Wed",n:41},{d:"Thu",n:52},{d:"Fri",n:61},{d:"Sat",n:70},{d:"Sun",n:48}];
-const NOW="12:40";
-const ADDED_KEY="bx-salons-added";
-try{JSON.parse(localStorage.getItem(ADDED_KEY)||"[]").forEach(x=>SALONS.push(x))}catch(e){}
-const saveAdded=()=>{try{localStorage.setItem(ADDED_KEY,JSON.stringify(SALONS.filter(x=>x.added)))}catch(e){}}; // demo clock: Saturday 25 October
+// ---------- Firebase ----------
+// The web config is public by design; the database rules (firestore.rules) decide who can read and write.
+const firebaseConfig={apiKey:"AIzaSyDtAHFIJcatRNBGkaJYIFhRoCRwVSvCuzE",authDomain:"beautinix.firebaseapp.com",projectId:"beautinix",storageBucket:"beautinix.firebasestorage.app",messagingSenderId:"449894598329",appId:"1:449894598329:web:798cf72a477e8e1310fd68"};
+let auth=null,db=null;
+try{
+  firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore();
+  // Local testing against the Firebase emulator: open http://localhost:…/?emulator
+  if(/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&/[?&]emulator\b/.test(location.search)){auth.useEmulator("http://127.0.0.1:9099");db.useEmulator("127.0.0.1",8080)}
+}catch(e){console.error(e);auth=db=null}
+const now=()=>firebase.firestore.FieldValue.serverTimestamp();
+const col=n=>db.collection(n);
+
+// Sample listing so die Gäste isn't empty. It lives only in this page and can't be booked.
+const SAMPLE={id:"sample-pallavi",sample:true,status:"active",name:"Pallavi's Paradise",person:"Pallavi",wa:"+91 98765 43210",state:"Madhya Pradesh",city:"Indore",pin:"452001",availability:"available",
+  services:[{id:"p1",name:"Facial",price:450},{id:"p2",name:"Eyebrow threading",price:50},{id:"p3",name:"Waxing (full arms)",price:300},{id:"p4",name:"Haircut",price:250},{id:"p5",name:"Hair spa",price:800},{id:"p6",name:"Bridal makeup",price:8000}]};
 
 // ---------- Helpers ----------
 const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const inr=n=>"₹"+n.toLocaleString("en-IN");
-const svc=id=>SERVICES.find(s=>s.id===id);
-const staff=id=>STAFF.find(s=>s.id===id);
-const salon=id=>SALONS.find(s=>s.id===id);
-const place=s=>s.city||s.name;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>"₹"+Number(n).toLocaleString("en-IN");
 const mins=t=>{const[h,m]=t.split(":").map(Number);return h*60+m};
 const icon=n=>`<svg class="ico"><use href="#i-${n}"/></svg>`;
-const STATUS={confirmed:"Confirmed",pending:"Awaiting confirmation",cancelled:"Cancelled",checkedin:"Checked in"};
-const pill=s=>`<span class="pill s-${s}">${STATUS[s]}</span>`;
-function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
 const store={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-const sess={get(k){try{return sessionStorage.getItem(k)}catch(e){return sess.m[k]}},set(k,v){sess.m[k]=v;try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){}},m:{}};
-
-function nextCard(list,label){
-  const up=list.filter(a=>a.status!=="cancelled"&&mins(a.time)>=mins(NOW)).sort((a,b)=>mins(a.time)-mins(b.time))[0];
-  if(!up)return `<div class="next"><div class="next-body"><span class="eyebrow">${label}</span><h2>No more appointments today</h2></div></div>`;
-  const left=mins(up.time)-mins(NOW),v=svc(up.svc),t=staff(up.staff);
-  return `<div class="next"><div class="next-tile"><b class="num">${left}</b><small>MIN</small></div>
-    <div class="next-body"><span class="eyebrow">${label}</span><h2>${esc(up.guest)}</h2><p>${v.name} · ${up.time} · ${v.min} min</p></div>
-    <div class="next-side"><span class="tag">${t.name.split(" ")[0]} · ${place(salon(up.salon))}</span><span class="ref mono">BX-${up.id}-${up.salon.toUpperCase()}</span></div></div>`;
+const lock=f=>f&&f.querySelectorAll("button").forEach(b=>b.disabled=true);
+const logo=()=>document.querySelector(".top .logo").outerHTML;
+const msOf=t=>t&&t.toMillis?t.toMillis():Date.now();
+function errMsg(e){
+  const c=(e&&e.code)||"",m=(e&&e.message)||"";
+  if(/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c))return "That email and password don't match. Check them, or reset your password.";
+  if(/too-many-requests/.test(c))return "Too many tries. Wait a few minutes, or reset your password.";
+  if(/network-request-failed|unavailable/.test(c))return "Can't reach Beautinix. Check your internet connection and try again.";
+  if(/operation-not-allowed|configuration-not-found|admin-restricted/.test(c)||/CONFIGURATION_NOT_FOUND/.test(m))return "Sign-in isn't switched on yet. The Beautinix team needs to turn on Email/Password sign-in in Firebase.";
+  if(/permission-denied/.test(c))return "The database didn't allow this. The Beautinix team needs to publish the database rules.";
+  if(/weak-password/.test(c))return "Use at least 8 characters for the password.";
+  if(/email-already-in-use/.test(c))return "An account with this email already exists. Sign in instead.";
+  if(/invalid-email/.test(c))return "Enter a valid email address, for example name@gmail.com.";
+  return "Something went wrong. Try again.";
 }
+
+// ---------- Who is signed in ----------
+// Roles: admin (the admin email), owner (a salon whose ownerUid is this user), guest (a guests/{uid} document).
+const ADMIN_ID="admin@beautinix.de";
+let me={ready:!db,user:null,role:null,salonId:null,guest:null};
+let data={salons:[],invites:{},bookings:[],loaded:false};
+let listings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
+const isAdmin=()=>me.role==="admin";
+const salonUser=()=>me.role==="owner"?data.salons.find(s=>s.id===me.salonId)||null:null;
+const guestUser=()=>me.role==="guest"?me.guest:null;
+const salonById=id=>id===SAMPLE.id?SAMPLE:data.salons.find(s=>s.id===id);
+
+function listen(q,fn){unsubs.push(q.onSnapshot(fn,e=>{console.error(e);dbErr=errMsg(e);rerender()}))}
+const docs=s=>s.docs.map(d=>({id:d.id,...d.data()}));
+function attach(){
+  const r=me.role;if(!r)return;
+  listen(r==="admin"?col("salons"):col("salons").where("status","==","active"),s=>{data.salons=docs(s);data.loaded=true;rerender()});
+  if(r==="admin"){
+    listen(col("invites"),s=>{data.invites={};s.docs.forEach(d=>data.invites[d.data().salonId]=d.id);rerender("admin")});
+    listen(col("bookings"),s=>{data.bookings=docs(s);rerender("salon")});
+  }
+  if(r==="owner")listen(col("bookings").where("ownerUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("salon")});
+  if(r==="guest")listen(col("bookings").where("guestUid","==",me.user.uid),s=>{data.bookings=docs(s);rerender("guests")});
+}
+async function resolve(u){
+  const my=++gen;resolvedUid=u?u.uid:null;
+  unsubs.forEach(f=>f());unsubs=[];
+  data={salons:[],invites:{},bookings:[],loaded:false};
+  me={ready:false,user:u,role:null,salonId:null,guest:null};
+  if(u){
+    rerender();
+    try{
+      if((u.email||"").toLowerCase()===ADMIN_ID)me.role="admin";
+      else{
+        const s=await col("salons").where("ownerUid","==",u.uid).limit(1).get();
+        if(!s.empty){me.role="owner";me.salonId=s.docs[0].id}
+        else{const g=await col("guests").doc(u.uid).get();if(g.exists){me.role="guest";me.guest={id:u.uid,...g.data()}}}
+      }
+    }catch(e){console.error(e);dbErr=errMsg(e)}
+    if(my!==gen)return;
+    attach();
+  }
+  me.ready=true;rerender();
+}
+// Sign-in, sign-up and claim flows run here so the role is known before the page moves on.
+async function withAuth(fn){busyAuth=true;try{return await fn()}finally{busyAuth=false;await resolve(auth.currentUser)}}
+if(db){
+  col("listings").where("active","==",true).onSnapshot(s=>{listings=docs(s);rerender("guests")},e=>{console.error(e);dbErr=errMsg(e);rerender("guests")});
+  auth.onAuthStateChanged(u=>{if(!busyAuth&&(u?u.uid:null)!==resolvedUid)resolve(u)});
+}
+
+// Live updates re-draw the page, but never while someone is typing in it.
+let renderPending=false,pointerDown=false;
+addEventListener("pointerdown",()=>pointerDown=true,true);
+addEventListener("pointerup",()=>setTimeout(()=>pointerDown=false,0),true);
+const typing=()=>{const a=document.activeElement;return a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)&&$("#sec-"+current).contains(a)};
+function rerender(sec){
+  if(sec&&sec!==current)return;
+  if(typing()||pointerDown){renderPending=true;return}
+  renderPending=false;showSection(current,true);
+}
+setInterval(()=>{if(renderPending&&!typing()&&!pointerDown)rerender()},700);
+
+const loadingView=`<div class="panel"><p class="small">Loading…</p></div>`;
+const offlineView=`<div class="panel"><h3>Can't reach the database</h3><p class="small">Beautinix couldn't load Firebase. Check your internet connection and reload the page.</p></div>`;
+const dbNote=()=>dbErr?`<p class="err" role="alert">${esc(dbErr)}</p>`:"";
 
 // ---------- Section switch ----------
 const SECTIONS=["admin","salon","guests"];
 const CHIP={admin:"Admin",salon:"Salon",guests:"Guest"};
 let current="admin";
-const isAdmin=()=>!!sess.get("bx-admin");
-const salonUser=()=>{const id=sess.get("bx-salon-user");return id?salon(id)||null:null};
-function showSection(sec){
+function showSection(sec,keep){
   if(!SECTIONS.includes(sec))sec="admin";current=sec;
-  // Salon staff and guests can't open Admin: the tab is locked until the admin signs in.
+  // Salon owners and guests can't open Admin: the tab is locked until the admin signs in.
   $("#tab-admin").disabled=!isAdmin();
   $("#tab-admin").querySelector(".lock-ico").toggleAttribute("hidden",isAdmin());
-  $("#signin").hidden=isAdmin()||!!salonUser()||!!guestUser()||sec==="admin";
+  $("#signin").hidden=!!me.user||sec==="admin";
+  $("#logout").hidden=!me.user;
   SECTIONS.forEach(s=>{$("#sec-"+s).hidden=s!==sec;$("#tab-"+s).setAttribute("aria-selected",s===sec)});
   $("#role-chip").textContent=CHIP[sec];
   ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
-  $("#logout").hidden=!(isAdmin()||salonUser()||guestUser());
-  try{history.replaceState(null,"","#"+sec)}catch(e){}
-  window.scrollTo(0,0);
+  try{history.replaceState(null,"",location.search+"#"+sec)}catch(e){}
+  if(!keep)window.scrollTo(0,0);
 }
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>showSection(b.dataset.sec));
-$("#refresh").onclick=()=>{showSection(current);toast("Up to date")};
-$("#logout").onclick=()=>{const was=guestUser()&&!isAdmin()&&!salonUser()?"guests":"salon";["bx-admin","bx-salon-user","bx-guest-user"].forEach(k=>sess.set(k,null));authView="login";salonAuth="login";guestView="list";gb.salon=null;showSection(was);toast("Signed out")};
+$("#refresh").onclick=()=>{showSection(current,true);toast("Up to date")};
+$("#logout").onclick=async()=>{const was=me.role==="guest"?"guests":"salon";
+  authView="login";salonAuth="login";guestView="list";gb.salon=null;lastInvite=null;
+  if(auth)await auth.signOut();await resolve(null);showSection(was);toast("Signed out")};
 $("#signin").onclick=()=>{authView="login";authErr="";showSection("admin")};
 
 // ---------- Shared helpers for accounts ----------
@@ -431,16 +462,8 @@ const waDigits=v=>String(v).replace(/\D/g,"");
 const waProblem=d=>/^[0-9]{10}$/.test(d)?"":"Enter exactly 10 digits after +91.";
 const waFmt=d=>`+91 ${d.slice(0,5)} ${d.slice(5)}`;
 function bindDigits(root){root.querySelectorAll(".wa-field input,.price-field input,input[inputmode=numeric]").forEach(i=>i.addEventListener("input",()=>{const c=i.value.replace(/\D/g,"").slice(0,i.maxLength>0?i.maxLength:99);if(c!==i.value)i.value=c}))}
-const otp=()=>String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000);
-async function hashPw(pw){
-  const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("beautinix:"+pw));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
-}
-function newCode(){
-  const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let c;
-  do{c="BX-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),n=>A[n%A.length]).join("")}while(SALONS.some(s=>s.code===c));
-  return c;
-}
+function newCode(){const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";return "BX-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),n=>A[n%A.length]).join("")}
+async function freeCode(){for(;;){const c=newCode();if(!(await col("invites").doc(c).get()).exists)return c}}
 function pwProblem(p,p2){
   if(p.length<8)return "Use at least 8 characters for the password.";
   if(p!==p2)return "The two passwords don't match.";
@@ -452,13 +475,12 @@ function inviteText(s){
 }
 const waLink=s=>`https://wa.me/${s.wa.replace(/[^0-9]/g,"")}?text=${encodeURIComponent(inviteText(s))}`;
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Message copied")}catch(e){toast("Couldn't copy. Select the message and copy it instead.")}}
+const sentView=(email,back)=>`<div class="auth-head"><h1>Check your email</h1><p>If there's an account for ${esc(maskEmail(email))}, we've sent it a link to choose a new password. The link is valid for 1 hour.</p></div>
+  <div class="panel"><p class="small">Open the link, set your new password, then come back here and sign in. Can't find it? Look in spam.</p><button class="btn primary block" type="button" data-go="${back}" data-gv="${back}">Back to sign-in</button></div>`;
 
 // ---------- Admin sign-in ----------
-// Prototype only: the starting credentials live in this page. A real app must check them on a server.
-const ADMIN_ID="admin@beautinix.de";
-const DEFAULT_PW="Beautinix@2026";
-const adminPw=()=>store.get("bx-admin-pw",DEFAULT_PW);
-let authView="login",resetCode=null,authErr="";
+// The admin account is the Firebase user with the admin email. Its password lives in Firebase, not in this page.
+let authView="login",authErr="",resetFor="";
 function renderAuth(el){
   let body="";
   if(authView==="login"){
@@ -466,47 +488,37 @@ function renderAuth(el){
     <form class="panel" id="login-form" novalidate>
       <label class="f">Login ID<input class="input" id="login-id" type="email" autocomplete="username" placeholder="you@example.com" required></label>
       <label class="f">Password<span class="pw"><input class="input" id="login-pw" type="password" autocomplete="current-password" required><button type="button" id="pw-show">Show</button></span></label>
-      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
+      ${authErr?`<p class="err" role="alert">${esc(authErr)}</p>`:""}
       <button class="btn primary block" type="submit">Sign in</button>
-      <button class="link" type="button" id="to-forgot">Forgot password?</button>
+      <button class="link" type="button" data-go="forgot">Forgot password?</button>
     </form>`;
   } else if(authView==="forgot"){
-    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your login ID and we'll send a 6-digit code to its email address.</p></div>
+    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your login ID and we'll email you a link to choose a new password.</p></div>
     <form class="panel" id="forgot-form" novalidate>
       <label class="f">Login ID<input class="input" id="fp-id" type="email" placeholder="you@example.com" required></label>
-      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
-      <button class="btn primary block" type="submit">Send code</button>
-      <button class="link" type="button" id="to-login">Back to sign-in</button>
+      ${authErr?`<p class="err" role="alert">${esc(authErr)}</p>`:""}
+      <button class="btn primary block" type="submit">Send reset link</button>
+      <button class="link" type="button" data-go="login">Back to sign-in</button>
     </form>`;
-  } else {
-    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(ADMIN_ID)}. It's valid for 10 minutes.</p></div>
-    <p class="note">Prototype: no email is sent. Your code is <b>${resetCode}</b></p>
-    <form class="panel" id="reset-form" novalidate>
-      <label class="f">6-digit code<input class="input mono" id="rp-code" inputmode="numeric" maxlength="6" required></label>
-      <label class="f">New password<input class="input" id="rp-pw" type="password" autocomplete="new-password" required></label>
-      <label class="f">Repeat new password<input class="input" id="rp-pw2" type="password" autocomplete="new-password" required></label>
-      ${authErr?`<p class="err" role="alert">${authErr}</p>`:""}
-      <button class="btn primary block" type="submit">Save new password</button>
-      <button class="link" type="button" id="to-login">Back to sign-in</button>
-    </form>`;
-  }
-  el.innerHTML=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${body}</div>`;
+  } else body=sentView(resetFor,"login");
+  el.innerHTML=`<div class="auth">${logo()}${body}</div>`;
   const go=v=>{authView=v;authErr="";renderAdmin()};
-  $("#to-forgot")&&($("#to-forgot").onclick=()=>go("forgot"));
-  $("#to-login")&&($("#to-login").onclick=()=>go("login"));
+  el.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("#pw-show")&&($("#pw-show").onclick=e=>{const i=$("#login-pw");i.type=i.type==="password"?"text":"password";e.target.textContent=i.type==="password"?"Show":"Hide"});
-  const lf=$("#login-form");if(lf)lf.onsubmit=e=>{e.preventDefault();
-    if($("#login-id").value.trim().toLowerCase()===ADMIN_ID&&$("#login-pw").value===adminPw()){sess.set("bx-admin","1");authErr="";showSection("admin");toast("Signed in")}
-    else{authErr="That login ID and password don't match. Check them, or reset your password.";renderAdmin()}};
-  const ff=$("#forgot-form");if(ff)ff.onsubmit=e=>{e.preventDefault();
-    if($("#fp-id").value.trim().toLowerCase()!==ADMIN_ID){authErr="We don't have an admin account with that login ID.";renderAdmin();return}
-    resetCode=otp();go("reset")};
-  const rf=$("#reset-form");if(rf)rf.onsubmit=e=>{e.preventDefault();
-    const p=$("#rp-pw").value;
-    if($("#rp-code").value.trim()!==resetCode)authErr="That code isn't right. Check the 6 digits and try again.";
-    else authErr=pwProblem(p,$("#rp-pw2").value);
-    if(!authErr){store.set("bx-admin-pw",p);resetCode=null;authView="login";toast("Password changed. Sign in with your new password.")}
-    renderAdmin()};
+  const fail=m=>{authErr=m;renderAdmin()};
+  const lf=$("#login-form");if(lf)lf.onsubmit=async e=>{e.preventDefault();
+    const id=$("#login-id").value.trim().toLowerCase(),pw=$("#login-pw").value;
+    if(id!==ADMIN_ID||!pw)return fail("That login ID and password don't match. Check them, or reset your password.");
+    lock(lf);
+    try{await withAuth(()=>auth.signInWithEmailAndPassword(id,pw))}catch(err){return fail(errMsg(err))}
+    if(!isAdmin())return fail(dbErr||"That login ID and password don't match. Check them, or reset your password.");
+    authErr="";showSection("admin");toast("Signed in")};
+  const ff=$("#forgot-form");if(ff)ff.onsubmit=async e=>{e.preventDefault();
+    const id=$("#fp-id").value.trim().toLowerCase();
+    if(id!==ADMIN_ID)return fail("We don't have an admin account with that login ID.");
+    lock(ff);
+    try{await auth.sendPasswordResetEmail(id)}catch(err){if(!/user-not-found/.test(err.code))return fail(errMsg(err))}
+    resetFor=id;go("sent")};
 }
 
 // ---------- Admin ----------
@@ -514,7 +526,9 @@ let adminView="add";
 const ADMIN_TABS=[["add","Add Salon Details","plus"]];
 function renderAdmin(){
   const el=$("#sec-admin");
-  if(!isAdmin()){$("#logout").hidden=!(salonUser()||guestUser());renderAuth(el);return}
+  if(!db){el.innerHTML=offlineView;return}
+  if(!me.ready){el.innerHTML=loadingView;return}
+  if(!isAdmin()){renderAuth(el);return}
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
@@ -524,8 +538,8 @@ function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p
 
 const STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
 
-// Admin input page: saving creates a unique code and opens WhatsApp with the invite for the salon owner.
-let addErr={},addDraft={},lastInvite=null,confirmDel=null;
+// Admin input page: saving stores the salon in Firestore, creates a unique code and opens WhatsApp with the invite.
+let addErr={},addDraft={},lastInvite=null,confirmDel=null,saving=false;
 function invitePanel(s){
   return `<div class="panel invite" id="invite">
     <span class="eyebrow">Invite ready</span>
@@ -542,69 +556,86 @@ function invitePanel(s){
 function aAdd(el){
   const v=k=>esc(addDraft[k]||"");
   const e=k=>addErr[k]?`<span class="field-err" role="alert">${addErr[k]}</span>`:"";
-  const invited=SALONS.filter(s=>s.added).slice().reverse();
-  const inv=lastInvite&&salon(lastInvite);
-  el.innerHTML=head("Add Salon Details","Saving creates a unique code. Send it to the salon owner on WhatsApp so they can create their account in Salon de Beauté.")+
+  const added=data.salons.slice().sort((a,b)=>msOf(b.createdAt)-msOf(a.createdAt));
+  const inv=lastInvite;
+  el.innerHTML=head("Add Salon Details","Saving creates a unique code. Send it to the salon owner on WhatsApp so they can create their account in Salon de Beauté.")+dbNote()+
   (inv?invitePanel(inv):"")+`
   <form class="panel" id="add-form" novalidate style="max-width:760px">
     <div class="form-grid" style="align-items:start">
       <label class="f"><span>Salon name <span class="req">*</span></span><input class="input" id="ad-name" value="${v("name")}" placeholder="Glow Studio Bandra" required>${e("name")}</label>
       <label class="f"><span>Name of the person <span class="req">*</span></span><input class="input" id="ad-person" value="${v("person")}" placeholder="Ananya Sharma" autocomplete="name" required>${e("person")}</label>
       <label class="f"><span>WhatsApp number <span class="req">*</span></span>${waField("ad-wa",v("wa"))}${e("wa")}</label>
-      <label class="f"><span>Email <span class="req">*</span> <span class="hint">(for password OTPs)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="owner@glowstudio.in" autocomplete="email" required>${e("email")}</label>
+      <label class="f"><span>Email <span class="req">*</span> <span class="hint">(for password resets)</span></span><input class="input" id="ad-email" type="email" value="${v("email")}" placeholder="owner@glowstudio.in" autocomplete="email" required>${e("email")}</label>
       <label class="f"><span>State <span class="req">*</span></span><select class="input" id="ad-state" required><option value="">Select state</option>${STATES.map(x=>`<option${addDraft.state===x?" selected":""}>${x}</option>`).join("")}</select>${e("state")}</label>
       <label class="f"><span>City <span class="req">*</span></span><input class="input" id="ad-city" value="${v("city")}" placeholder="Mumbai" required>${e("city")}</label>
       <label class="f"><span>PIN code <span class="req">*</span></span><input class="input mono" id="ad-pin" inputmode="numeric" maxlength="6" value="${v("pin")}" placeholder="400050" required>${e("pin")}</label>
     </div>
-    <div class="row"><button class="btn primary" type="submit">Save and send to Salon de Beauté</button><button class="btn" type="button" id="ad-clear">Clear</button></div>
+    ${addErr.save?`<p class="err" role="alert">${esc(addErr.save)}</p>`:""}
+    <div class="row"><button class="btn primary" type="submit" ${saving?"disabled":""}>${saving?"Saving…":"Save and send to Salon de Beauté"}</button><button class="btn" type="button" id="ad-clear">Clear</button></div>
   </form>
-  ${invited.length?`<div class="panel"><div class="panel-head"><h3>Salons you've added</h3><span>${invited.length}</span></div><div class="list">
-    ${invited.map(s=>`<div class="list-item"><div><b>${esc(s.name)}</b><div class="sub">${esc(s.person)} · ${esc(s.city)}, ${esc(s.state)} · <span class="mono">${s.code}</span></div></div>
-      <div class="row-actions">${confirmDel===s.id?`<span class="err">Delete ${esc(s.name)} and its owner account?</span><button class="btn sm danger" data-delsalon="${s.id}">Delete</button><button class="btn sm" data-keep>Keep</button>`
-        :`${s.status==="active"?`<span class="pill s-confirmed">Account created</span>`:`<span class="pill s-pending">Invite sent</span><a class="btn sm" href="${waLink(s)}" target="_blank" rel="noopener">Resend</a>`}<button class="btn sm" data-askdel="${s.id}">Delete</button>`}</div></div>`).join("")}
-  </div></div>`:""}`;
+  ${added.length?`<div class="panel"><div class="panel-head"><h3>Salons you've added</h3><span>${added.length}</span></div><div class="list">
+    ${added.map(s=>{const code=data.invites[s.id];return `<div class="list-item"><div><b>${esc(s.name)}</b><div class="sub">${esc(s.person)} · ${esc(s.city)}, ${esc(s.state)}${code?` · <span class="mono">${code}</span>`:""}</div></div>
+      <div class="row-actions">${confirmDel===s.id?`<span class="err">Delete ${esc(s.name)} and its owner's access?</span><button class="btn sm danger" data-delsalon="${s.id}">Delete</button><button class="btn sm" data-keep>Keep</button>`
+        :`${s.status==="active"?`<span class="pill s-confirmed">Account created</span>`:`<span class="pill s-pending">Invite sent</span>${code?`<a class="btn sm" href="${waLink({...s,code})}" target="_blank" rel="noopener">Resend</a>`:""}`}<button class="btn sm" data-askdel="${s.id}">Delete</button>`}</div></div>`}).join("")}
+  </div></div>`:data.loaded?"":loadingView}`;
   if(inv)$("#copy-msg").onclick=()=>copyText(inviteText(inv));
   bindDigits(el);
-  el.querySelectorAll("[data-askdel]").forEach(b=>b.onclick=()=>{confirmDel=b.dataset.askdel;renderAdmin()});
-  el.querySelectorAll("[data-keep]").forEach(b=>b.onclick=()=>{confirmDel=null;renderAdmin()});
-  el.querySelectorAll("[data-delsalon]").forEach(b=>b.onclick=()=>{const id=b.dataset.delsalon,s=salon(id);
-    const i=SALONS.indexOf(s);if(i>=0)SALONS.splice(i,1);saveAdded();
-    BOOKINGS=BOOKINGS.filter(x=>x.salon!==id);saveBookings();
-    if(lastInvite===id)lastInvite=null;confirmDel=null;renderAdmin();toast(`${s.name} and its owner account were deleted`)});
   const grab=()=>{addDraft={name:$("#ad-name").value.trim(),person:$("#ad-person").value.trim(),wa:waDigits($("#ad-wa").value),email:$("#ad-email").value.trim().toLowerCase(),
     state:$("#ad-state").value,city:$("#ad-city").value.trim(),pin:$("#ad-pin").value.trim()}};
-  $("#ad-clear").onclick=()=>{addDraft={};addErr={};renderAdmin()};
-  $("#add-form").onsubmit=ev=>{ev.preventDefault();grab();addErr={};
-    const d=addDraft;
+  $("#add-form").addEventListener("input",grab);$("#add-form").addEventListener("change",grab);
+  el.querySelectorAll("[data-askdel]").forEach(b=>b.onclick=()=>{confirmDel=b.dataset.askdel;renderAdmin()});
+  el.querySelectorAll("[data-keep]").forEach(b=>b.onclick=()=>{confirmDel=null;renderAdmin()});
+  el.querySelectorAll("[data-delsalon]").forEach(b=>b.onclick=async()=>{const id=b.dataset.delsalon,s=salonById(id);b.disabled=true;
+    // Removes the salon, its public listing, its invite code and its bookings.
+    try{
+      const batch=db.batch();
+      batch.delete(col("salons").doc(id));batch.delete(col("listings").doc(id));
+      (await col("invites").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
+      (await col("bookings").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
+      await batch.commit();
+      if(lastInvite&&lastInvite.id===id)lastInvite=null;confirmDel=null;renderAdmin();toast(`${s?s.name:"The salon"} was deleted`);
+    }catch(err){console.error(err);confirmDel=null;renderAdmin();toast(errMsg(err))}});
+  $("#ad-clear").onclick=()=>{addDraft={};addErr={};lastInvite=null;renderAdmin()};
+  $("#add-form").onsubmit=async ev=>{ev.preventDefault();if(saving)return;grab();addErr={};
+    const d=addDraft,S=data.salons;
     if(!d.name)addErr.name="Enter the salon's name.";
-    else if(SALONS.some(x=>x.name.toLowerCase()===d.name.toLowerCase()))addErr.name="A salon with this name already exists.";
+    else if(S.some(x=>x.name.toLowerCase()===d.name.toLowerCase()))addErr.name="A salon with this name already exists.";
     if(!d.person)addErr.person="Enter the name of the person for this salon.";
     const wa=waFmt(d.wa);
     if(waProblem(d.wa))addErr.wa=waProblem(d.wa);
-    else if(SALONS.some(x=>x.wa===wa))addErr.wa="Another salon already uses this WhatsApp number.";
-    if(emailProblem(d.email))addErr.email=emailProblem(d.email)+(d.email?"":" The owner gets password codes there.");
-    else if(SALONS.some(x=>(x.email||"").toLowerCase()===d.email))addErr.email="Another salon already uses this email address.";
+    else if(S.some(x=>x.wa===wa))addErr.wa="Another salon already uses this WhatsApp number.";
+    if(emailProblem(d.email))addErr.email=emailProblem(d.email)+(d.email?"":" The owner signs in and resets their password with it.");
+    else if(S.some(x=>(x.email||"").toLowerCase()===d.email))addErr.email="Another salon already uses this email address.";
     if(!d.state)addErr.state="Choose the state.";
     if(!d.city)addErr.city="Enter the city.";
     if(!/^[1-9][0-9]{5}$/.test(d.pin))addErr.pin="Enter the 6-digit PIN code.";
     if(Object.keys(addErr).length){renderAdmin();return}
-    const n={id:"s"+Date.now(),added:true,status:"invited",code:newCode(),name:d.name,person:d.person,wa,email:d.email,state:d.state,city:d.city,pin:d.pin,
-      addr:`${d.city}, ${d.state} ${d.pin}`,chairs:"–",hours:"Not set yet",rating:"–",util:0,availability:"available",services:[]};
-    SALONS.push(n);saveAdded();addDraft={};lastInvite=n.id;
-    renderAdmin();
-    // Open WhatsApp with the invite. Browsers may block this; the button in the panel always works.
-    try{window.open(waLink(n),"_blank","noopener")}catch(e){}
-    toast(`Saved. Code ${n.code} is ready to send to ${n.person}.`)};
+    // Open the WhatsApp tab now, while the click still counts, and point it at the invite once it's saved.
+    let w=null;try{w=window.open("","_blank")}catch(e){}
+    saving=true;renderAdmin();
+    try{
+      const code=await freeCode(),ref=col("salons").doc();
+      const info={name:d.name,person:d.person,wa,email:d.email,state:d.state,city:d.city,pin:d.pin};
+      const batch=db.batch();
+      batch.set(ref,{...info,status:"invited",availability:"available",services:[],ownerUid:null,createdAt:now()});
+      batch.set(col("listings").doc(ref.id),{name:d.name,availability:"available",active:false});
+      batch.set(col("invites").doc(code),{...info,salonId:ref.id,used:false,createdAt:now()});
+      await batch.commit();
+      lastInvite={id:ref.id,code,...info};addDraft={};
+      if(w){w.opener=null;w.location.href=waLink(lastInvite)}
+      toast(`Saved. Code ${code} is ready to send to ${d.person}.`);
+    }catch(err){console.error(err);if(w)w.close();addErr={save:errMsg(err)}}
+    saving=false;renderAdmin()};
 }
 
 // ---------- Salon de Beauté ----------
-let salonSel=store.get("bx-salon","ber");
-let salonAuth="login",salonErr="",salonOtp=null,salonOtpFor=null,claimId=null;
+let salonSel=store.get("bx-salon","");
+let salonAuth="login",salonErr="",claim=null,salonResetFor="";
 function renderSalonAuth(el){
-  const err=salonErr?`<p class="err" role="alert">${salonErr}</p>`:"";
+  const err=salonErr?`<p class="err" role="alert">${esc(salonErr)}</p>`:"";
   let body="";
   if(salonAuth==="login"){
-    body=`<div class="auth-head"><h1>Salon sign-in</h1><p>See your salon's bookings for today.</p></div>
+    body=`<div class="auth-head"><h1>Salon sign-in</h1><p>Manage your services, availability and bookings.</p></div>
     <form class="panel" id="s-login" novalidate>
       <label class="f">Email<input class="input" id="sl-email" type="email" autocomplete="username" placeholder="owner@yoursalon.in" required></label>
       <label class="f">Password<input class="input" id="sl-pw" type="password" autocomplete="current-password" required></label>
@@ -622,11 +653,11 @@ function renderSalonAuth(el){
       <button class="link" type="button" data-go="login">I already have an account</button>
     </form>`;
   } else if(salonAuth==="claim2"){
-    const s=salon(claimId);
+    const s=claim;
     body=`<div class="auth-head"><h1>${esc(s.name)}</h1><p>Check the details our team added, then choose your password.</p></div>
     <form class="panel" id="s-claim2" novalidate>
       <dl class="ro"><dt>Name</dt><dd>${esc(s.person)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd><dt>Email</dt><dd>${esc(s.email)}</dd><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd></dl>
-      <p class="small">Something wrong? Ask the Beautinix team to correct it before you continue.</p>
+      <p class="small">You'll sign in with this email. Something wrong? Ask the Beautinix team to correct it before you continue.</p>
       <label class="f">Password<input class="input" id="sc-pw" type="password" autocomplete="new-password" required></label>
       <label class="f">Repeat password<input class="input" id="sc-pw2" type="password" autocomplete="new-password" required></label>
       ${err}
@@ -634,148 +665,151 @@ function renderSalonAuth(el){
       <button class="link" type="button" data-go="claim">Use a different code</button>
     </form>`;
   } else if(salonAuth==="forgot"){
-    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your salon's email and we'll send a 6-digit code to it.</p></div>
+    body=`<div class="auth-head"><h1>Reset your password</h1><p>Enter your salon's email and we'll send you a link to choose a new password.</p></div>
     <form class="panel" id="s-forgot" novalidate>
       <label class="f">Email<input class="input" id="sf-email" type="email" autocomplete="username" placeholder="owner@yoursalon.in" required></label>
       ${err}
-      <button class="btn primary block" type="submit">Send code</button>
+      <button class="btn primary block" type="submit">Send reset link</button>
       <button class="link" type="button" data-go="login">Back to sign-in</button>
     </form>`;
-  } else {
-    const s=salon(salonOtpFor);
-    body=`<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(s.email)}. It's valid for 10 minutes.</p></div>
-    <p class="note">Prototype: no email is sent. Your code is <b>${salonOtp}</b></p>
-    <form class="panel" id="s-reset" novalidate>
-      <label class="f">6-digit code<input class="input mono" id="sr-code" inputmode="numeric" maxlength="6" required></label>
-      <label class="f">New password<input class="input" id="sr-pw" type="password" autocomplete="new-password" required></label>
-      <label class="f">Repeat new password<input class="input" id="sr-pw2" type="password" autocomplete="new-password" required></label>
-      ${err}
-      <button class="btn primary block" type="submit">Save new password</button>
-      <button class="link" type="button" data-go="login">Back to sign-in</button>
-    </form>`;
-  }
-  el.innerHTML=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${body}</div>`;
+  } else body=sentView(salonResetFor,"login");
+  el.innerHTML=`<div class="auth">${logo()}${body}</div>`;
   const go=v=>{salonAuth=v;salonErr="";renderSalon()};
   el.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   const fail=m=>{salonErr=m;renderSalon()};
-  const byEmail=m=>SALONS.find(x=>x.added&&x.status==="active"&&(x.email||"").toLowerCase()===m.trim().toLowerCase());
   const f1=$("#s-login");if(f1)f1.onsubmit=async e=>{e.preventDefault();
-    const s=byEmail($("#sl-email").value);
-    if(!s||s.pwHash!==await hashPw($("#sl-pw").value))return fail("That email and password don't match. Check them, or reset your password.");
-    sess.set("bx-salon-user",s.id);salonErr="";showSection("salon");toast(`Welcome, ${s.person}`)};
-  const f2=$("#s-claim");if(f2)f2.onsubmit=e=>{e.preventDefault();
-    const c=$("#sc-code").value.trim().toUpperCase().replace(/\s+/g,"");
-    const s=SALONS.find(x=>x.code===c||x.code===("BX-"+c.replace(/^BX-?/,"")));
-    if(!s)return fail("We can't find that code. Check it against your WhatsApp message.");
-    if(s.status==="active")return fail("This code has already been used. Sign in with your email instead.");
-    claimId=s.id;go("claim2")};
+    const m=$("#sl-email").value.trim().toLowerCase(),p=$("#sl-pw").value;
+    if(emailProblem(m))return fail(emailProblem(m));
+    lock(f1);
+    try{await withAuth(()=>auth.signInWithEmailAndPassword(m,p))}catch(err){return fail(errMsg(err))}
+    if(me.role!=="owner"&&!isAdmin()){await auth.signOut();await resolve(null);return fail(dbErr||"This account isn't linked to a salon. Use the email the Beautinix team added for your salon.")}
+    salonErr="";showSection("salon");toast("Signed in")};
+  const f2=$("#s-claim");if(f2)f2.onsubmit=async e=>{e.preventDefault();
+    const raw=$("#sc-code").value.trim().toUpperCase().replace(/\s+/g,"");
+    const c="BX-"+raw.replace(/^BX-?/,"");
+    if(c.length!==9)return fail("We can't find that code. Check it against your WhatsApp message.");
+    lock(f2);
+    let d;try{d=await col("invites").doc(c).get()}catch(err){return fail(errMsg(err))}
+    if(!d.exists)return fail("We can't find that code. Check it against your WhatsApp message.");
+    if(d.data().used)return fail("This code has already been used. Sign in with your email instead.");
+    claim={code:c,...d.data()};go("claim2")};
   const f3=$("#s-claim2");if(f3)f3.onsubmit=async e=>{e.preventDefault();
     const p=$("#sc-pw").value,m=pwProblem(p,$("#sc-pw2").value);if(m)return fail(m);
-    const s=salon(claimId);s.pwHash=await hashPw(p);s.status="active";saveAdded();
-    sess.set("bx-salon-user",s.id);salonAuth="login";salonErr="";showSection("salon");toast("Account created. You're signed in.")};
-  const f4=$("#s-forgot");if(f4)f4.onsubmit=e=>{e.preventDefault();
-    const s=byEmail($("#sf-email").value);
-    if(!s)return fail("We don't have a salon account with that email.");
-    salonOtpFor=s.id;salonOtp=otp();go("reset")};
-  const f5=$("#s-reset");if(f5)f5.onsubmit=async e=>{e.preventDefault();
-    if($("#sr-code").value.trim()!==salonOtp)return fail("That code isn't right. Check the 6 digits and try again.");
-    const p=$("#sr-pw").value,m=pwProblem(p,$("#sr-pw2").value);if(m)return fail(m);
-    const s=salon(salonOtpFor);s.pwHash=await hashPw(p);saveAdded();salonOtp=null;
-    salonAuth="login";salonErr="";renderSalon();toast("Password changed. Sign in with your new password.")};
+    lock(f3);
+    try{await withAuth(async()=>{
+      let cred;
+      try{cred=await auth.createUserWithEmailAndPassword(claim.email,p)}
+      catch(err){
+        if(!/email-already-in-use/.test(err.code))throw err;
+        // The email already has an account (an earlier try, or a guest account): sign in to it instead.
+        try{cred=await auth.signInWithEmailAndPassword(claim.email,p)}catch(e2){throw {code:"bx/exists"}}
+      }
+      const batch=db.batch(),uid=cred.user.uid;
+      batch.update(col("salons").doc(claim.salonId),{ownerUid:uid,status:"active",claimCode:claim.code});
+      batch.update(col("listings").doc(claim.salonId),{active:true});
+      batch.update(col("invites").doc(claim.code),{used:true});
+      await batch.commit();
+    })}catch(err){console.error(err);return fail(err.code==="bx/exists"?"This email already has a Beautinix account. Enter that account's password, or reset it from the salon sign-in page.":errMsg(err))}
+    claim=null;salonAuth="login";salonErr="";showSection("salon");toast("Account created. You're signed in.")};
+  const f4=$("#s-forgot");if(f4)f4.onsubmit=async e=>{e.preventDefault();
+    const m=$("#sf-email").value.trim().toLowerCase();if(emailProblem(m))return fail(emailProblem(m));
+    lock(f4);
+    try{await auth.sendPasswordResetEmail(m)}catch(err){if(!/user-not-found/.test(err.code))return fail(errMsg(err))}
+    salonResetFor=m;go("sent")};
 }
 function renderSalon(){
   const el=$("#sec-salon");
-  const me=salonUser();
-  if(!me&&!isAdmin()){renderSalonAuth(el);return}
-  // A salon owner sees only their salon; the signed-in admin can switch between salons.
-  const s=me||salon(salonSel)||SALONS[0];const team=STAFF.filter(t=>t.salon===s.id);
-  const start=9,end=20,hourPx=60,headH=58;
-  const ap=APPTS.filter(a=>a.salon===s.id&&a.status!=="cancelled");
-  const top=t=>mins(t)-start*60;
-  el.innerHTML=(s.services?"":nextCard(ap,"Next guest · "+esc(place(s))))+`
-  <div class="pane-head"><div><h1>${esc(s.name)}${s.added?'<span class="new-badge">New</span>':""}</h1><p>${s.services?`${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}`:`Today · ${ap.length} appointments${team.length?" · tap one to check the guest in":""}`}</p></div>
-    ${me?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${SALONS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><span class="sample">Sample data</span></div>`}</div>
+  if(!db){el.innerHTML=offlineView;return}
+  if(!me.ready){el.innerHTML=loadingView;return}
+  const mine=salonUser();
+  if(!mine&&!isAdmin()){
+    if(me.role==="owner"&&data.loaded){el.innerHTML=`<div class="panel"><h3>Your salon isn't on Beautinix any more</h3><p class="small">The Beautinix team removed it. Ask them if you think this is a mistake.</p></div>`;return}
+    if(me.role==="owner"){el.innerHTML=loadingView;return}
+    renderSalonAuth(el);return;
+  }
+  // A salon owner sees only their salon; the signed-in admin can look at any salon.
+  const list=data.salons;
+  if(!mine&&!list.length){el.innerHTML=head("Salon de Beauté",data.loaded?"No salons yet. Add one in Admin and it appears here.":"Loading…");return}
+  const s=mine||list.find(x=>x.id===salonSel)||list[0];
+  el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?"":` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
+    ${mine?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div>`}</div>
+  ${dbNote()}
   <div class="panel"><div class="contact">
-    ${s.person?`<span>${icon("user")}${esc(s.person)}</span>`:""}
-    ${s.wa?`<a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>`:""}
+    <span>${icon("user")}${esc(s.person)}</span>
+    <a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
-    ${s.added?`<span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>`:""}
-  </div>${s.desc?`<p style="color:var(--muted)">${esc(s.desc)}</p>`:""}</div>
-  ${s.services?ownerPanels(s,!!me&&me.id===s.id):`<div class="timeline"><div class="tl" style="grid-template-columns:64px repeat(${Math.max(team.length,1)},minmax(170px,1fr))">
-    <div class="hcell hours" style="height:${headH}px"></div>${team.map(t=>`<div class="hcell" style="height:${headH}px">${t.name}<small>${t.role}</small></div>`).join("")||`<div class="hcell" style="height:${headH}px">No staff yet</div>`}
-    <div class="hours">${Array.from({length:end-start},(_,i)=>`<div class="hour">${String(start+i).padStart(2,"0")}:00</div>`).join("")}</div>
-    ${team.map(t=>`<div class="col" style="height:${(end-start)*hourPx}px">${ap.filter(a=>a.staff===t.id).map(a=>{const v=svc(a.svc);return `<button class="appt ${a.status}" style="top:${top(a.time)}px;height:${v.min-4}px" data-id="${a.id}"><b>${a.time} ${esc(a.guest)}</b><span>${v.name}${a.status==="checkedin"?" · checked in":a.status==="pending"?" · awaiting confirmation":""}</span></button>`}).join("")}</div>`).join("")}
-    <div class="now" style="top:${headH+top(NOW)}px" aria-hidden="true"></div>
-  </div></div>`}`;
-  if(s.services)bindOwner(el,s);
-  if(!me){$("#salon-pick").value=s.id;
+    <span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>
+  </div></div>
+  ${ownerPanels(s,!!mine)}`;
+  bindOwner(el,s);
+  if(!mine){$("#salon-pick").value=s.id;
     $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
-  el.querySelectorAll(".appt").forEach(b=>b.onclick=()=>{const a=APPTS.find(x=>x.id==b.dataset.id);
-    if(a.status==="checkedin"){a.status="confirmed";toast(`${a.guest}: check-in undone`)}else{a.status="checkedin";toast(`${a.guest} checked in`)}renderSalon()});
 }
 
 // ---------- Salon services & availability (owner) ----------
 const AVAIL={available:["Available","s-confirmed"],busy:["Busy","s-pending"],unavailable:["Not available","s-cancelled"]};
-const availPill=s=>{const[a,c]=AVAIL[s.availability||"available"];return `<span class="pill ${c}">${a}</span>`};
+const availPill=s=>{const[a,c]=AVAIL[s.availability]||AVAIL.available;return `<span class="pill ${c}">${a}</span>`};
 const QUICK=["Facial","Clean-up","Eyebrow threading","Upper lip threading","Waxing (full arms)","Haircut","Hair spa","Hair colour","Manicure","Pedicure","Party makeup","Bridal makeup"];
-const BOOK_KEY="bx-bookings";
-let BOOKINGS=[];try{BOOKINGS=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]")}catch(e){}
-const saveBookings=()=>{try{localStorage.setItem(BOOK_KEY,JSON.stringify(BOOKINGS))}catch(e){}};
+const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
+const dayOf=s=>new Date(s+"T00:00");
 let svcErr="";
 function ownerPanels(s,editable){
-  const mine=BOOKINGS.filter(b=>b.salon===s.id).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const services=s.services||[];
+  const mine=data.bookings.filter(b=>b.salonId===s.id).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   return `<div class="grid2">
-  <div class="panel"><div class="panel-head"><h3>Services and prices</h3><span>${s.services.length} listed</span></div>
-    ${s.services.length?`<div class="list">${s.services.map(v=>`<div class="list-item"><b>${esc(v.name)}</b>
+  <div class="panel"><div class="panel-head"><h3>Services and prices</h3><span>${services.length} listed</span></div>
+    ${services.length?`<div class="list">${services.map(v=>`<div class="list-item"><b>${esc(v.name)}</b>
       <div class="row-actions">${editable?`<span class="price-field"><span class="cc">₹</span><input class="input mono" data-price="${v.id}" inputmode="numeric" maxlength="6" value="${v.price}" aria-label="Price for ${esc(v.name)}"></span><button class="btn sm" data-del="${v.id}">Remove</button>`:`<span class="num price">${inr(v.price)}</span>`}</div></div>`).join("")}</div>`
       :`<p class="small">No services yet.${editable?" Add your first one below, for example Facial for ₹450.":""}</p>`}
     ${editable?`<form id="svc-form" class="svc-add" novalidate>
       <label class="f">Service<input class="input" id="sv-name" list="sv-quick" placeholder="Facial" autocomplete="off"></label>
-      <datalist id="sv-quick">${QUICK.filter(q=>!s.services.some(v=>v.name.toLowerCase()===q.toLowerCase())).map(q=>`<option value="${q}">`).join("")}</datalist>
+      <datalist id="sv-quick">${QUICK.filter(q=>!services.some(v=>v.name.toLowerCase()===q.toLowerCase())).map(q=>`<option value="${q}">`).join("")}</datalist>
       <label class="f">Price<span class="price-field"><span class="cc">₹</span><input class="input mono" id="sv-price" inputmode="numeric" maxlength="6" placeholder="450"></span></label>
       <button class="btn primary" type="submit">Add service</button>
-      ${svcErr?`<p class="err" role="alert" style="grid-column:1/-1">${svcErr}</p>`:""}
+      ${svcErr?`<p class="err" role="alert" style="grid-column:1/-1">${esc(svcErr)}</p>`:""}
     </form>`:""}
   </div>
   <div class="panel"><div class="panel-head"><h3>Availability</h3>${availPill(s)}</div>
     <p class="small">Guests see this next to ${esc(s.name)} in die Gäste.</p>
     <div class="avail" role="group" aria-label="Availability">${Object.entries(AVAIL).map(([k,[l]])=>`<button class="avail-btn a-${k}" data-avail="${k}" aria-pressed="${(s.availability||"available")===k}" ${editable?"":"disabled"}>${l}</button>`).join("")}</div>
     <div class="panel-head" style="margin-top:8px"><h3>Bookings</h3><span>${mine.length}</span></div>
-    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item"><div><b>${esc(b.guest)}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(new Date(b.date),{day:"numeric",month:"short"})} ${b.time}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
+    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item"><div><b>${esc(b.guest)}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
       :`<p class="small">No bookings yet. They appear here when guests book.</p>`}
   </div></div>`;
 }
 function bindOwner(el,s){
-  el.querySelectorAll("[data-avail]").forEach(b=>b.onclick=()=>{s.availability=b.dataset.avail;saveAdded();renderSalon();toast(`Guests now see: ${AVAIL[s.availability][0]}`)});
-  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{s.services=s.services.filter(v=>v.id!==b.dataset.del);saveAdded();renderSalon();toast("Service removed")});
-  el.querySelectorAll("[data-price]").forEach(i=>i.onchange=()=>{const p=+i.value;const v=s.services.find(x=>x.id===i.dataset.price);
+  const ref=col("salons").doc(s.id),services=s.services||[];
+  const save=(patch,msg)=>ref.update(patch).then(()=>msg&&toast(msg)).catch(e=>{console.error(e);toast(errMsg(e));renderSalon()});
+  el.querySelectorAll("[data-avail]").forEach(b=>b.onclick=()=>{const a=b.dataset.avail;
+    const batch=db.batch();batch.update(ref,{availability:a});batch.update(col("listings").doc(s.id),{availability:a});
+    batch.commit().then(()=>toast(`Guests now see: ${AVAIL[a][0]}`)).catch(e=>{console.error(e);toast(errMsg(e))})});
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>save({services:services.filter(v=>v.id!==b.dataset.del)},"Service removed"));
+  el.querySelectorAll("[data-price]").forEach(i=>i.onchange=()=>{const p=+i.value,v=services.find(x=>x.id===i.dataset.price);
     if(!/^[0-9]{1,6}$/.test(i.value)||p<1){i.value=v.price;toast("Enter a price in whole rupees, for example 450");return}
-    v.price=p;saveAdded();toast(`${v.name} is now ${inr(p)}`)});
+    save({services:services.map(x=>x.id===v.id?{...x,price:p}:x)},`${v.name} is now ${inr(p)}`)});
   const f=$("#svc-form");if(f)f.onsubmit=e=>{e.preventDefault();
     const name=$("#sv-name").value.trim().replace(/\s+/g," "),pr=$("#sv-price").value.trim();
     svcErr=!name?"Enter the service name, for example Facial.":
-      s.services.some(v=>v.name.toLowerCase()===name.toLowerCase())?`${name} is already on your list. Change its price above instead.`:
+      services.some(v=>v.name.toLowerCase()===name.toLowerCase())?`${name} is already on your list. Change its price above instead.`:
       !/^[0-9]{1,6}$/.test(pr)||+pr<1?"Enter the price in whole rupees, for example 450.":"";
     if(svcErr){renderSalon();$("#sv-name").value=name;$("#sv-price").value=pr;return}
-    s.services.push({id:"v"+Date.now(),name:name[0].toUpperCase()+name.slice(1),price:+pr});saveAdded();renderSalon();toast(`${name} added at ${inr(+pr)}`)};
+    const nm=name[0].toUpperCase()+name.slice(1);
+    $("#sv-name").blur();$("#sv-price").blur();
+    save({services:[...services,{id:"v"+Date.now(),name:nm,price:+pr}]},`${nm} added at ${inr(+pr)}`)};
   bindDigits(el);
 }
 
 // ---------- die Gäste ----------
-// Guests see each salon's name and availability. Everything else stays masked until they create an account.
-const GUEST_KEY="bx-guests";
-let GUESTS_ACC=[];try{GUESTS_ACC=JSON.parse(localStorage.getItem(GUEST_KEY)||"[]")}catch(e){}
-const saveGuests=()=>{try{localStorage.setItem(GUEST_KEY,JSON.stringify(GUESTS_ACC))}catch(e){}};
-const guestUser=()=>{const id=sess.get("bx-guest-user");return id?GUESTS_ACC.find(g=>g.id===id)||null:null};
-let guestView="list",guestErr="",guestDraft={},guestOtp=null,guestOtpFor=null;
+// Everyone sees each salon's name and availability. Location, WhatsApp, services and prices stay masked until the guest signs in.
+let guestView="list",guestErr="",guestDraft={},guestResetFor="";
 const gb={salon:null,svc:null,day:0,time:null,done:null};
 function days(){const out=[];const d=new Date();d.setHours(0,0,0,0);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
-const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const MASK="*****";
-const listedSalons=()=>SALONS.filter(s=>s.services&&(s.sample||s.status==="active"));
+const listedSalons=()=>me.user?[SAMPLE,...data.salons.filter(s=>s.status==="active")]:[SAMPLE,...listings];
 
 function guestAuthView(){
-  const err=guestErr?`<p class="err" role="alert">${guestErr}</p>`:"";
+  const err=guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:"";
   const v=k=>esc(guestDraft[k]||"");
   if(guestView==="signup")return `<div class="auth-head"><h1>Create your guest account</h1><p>See salon services, prices and contact details, and book.</p></div>
     <form class="panel" id="g-signup" novalidate>
@@ -793,89 +827,116 @@ function guestAuthView(){
       ${err}<button class="btn primary block" type="submit">Sign in</button>
       <button class="link" type="button" data-gv="forgot">Forgot password?</button>
       <button class="link" type="button" data-gv="signup">New here? Create an account</button></form>`;
-  if(guestView==="forgot")return `<div class="auth-head"><h1>Reset your password</h1><p>Enter your email and we'll send a 6-digit code to it.</p></div>
+  if(guestView==="forgot")return `<div class="auth-head"><h1>Reset your password</h1><p>Enter your email and we'll send you a link to choose a new password.</p></div>
     <form class="panel" id="g-forgot" novalidate>
       <label class="f">Email<input class="input" id="gf-email" type="email" autocomplete="username"></label>
-      ${err}<button class="btn primary block" type="submit">Send code</button>
+      ${err}<button class="btn primary block" type="submit">Send reset link</button>
       <button class="link" type="button" data-gv="login">Back to sign-in</button></form>`;
-  const g=GUESTS_ACC.find(x=>x.id===guestOtpFor);
-  return `<div class="auth-head"><h1>Choose a new password</h1><p>We sent a code to ${maskEmail(g.email)}. It's valid for 10 minutes.</p></div>
-    <p class="note">Prototype: no email is sent. Your code is <b>${guestOtp}</b></p>
-    <form class="panel" id="g-reset" novalidate>
-      <label class="f">6-digit code<input class="input mono" id="gr-code" inputmode="numeric" maxlength="6"></label>
-      <label class="f">New password<input class="input" id="gr-pw" type="password" autocomplete="new-password"></label>
-      <label class="f">Repeat new password<input class="input" id="gr-pw2" type="password" autocomplete="new-password"></label>
-      ${err}<button class="btn primary block" type="submit">Save new password</button>
-      <button class="link" type="button" data-gv="login">Back to sign-in</button></form>`;
+  if(guestView==="sent")return sentView(guestResetFor,"login");
+  // Signed in, but no guest details saved yet (for example an earlier sign-up was interrupted).
+  return `<div class="auth-head"><h1>Finish your guest account</h1><p>Add your name and WhatsApp number to see salon details and book.</p></div>
+    <form class="panel" id="g-profile" novalidate>
+      <dl class="ro"><dt>Email</dt><dd>${esc(me.user.email)}</dd></dl>
+      <label class="f">Your name<input class="input" id="gp-name" value="${v("name")}" autocomplete="name" placeholder="Riya Mehta"></label>
+      <label class="f">WhatsApp number${waField("gp-wa",v("wa"))}</label>
+      ${err}<button class="btn primary block" type="submit">Save</button></form>`;
 }
-function salonCard(s,g){
-  const off=(s.availability||"available")==="unavailable";
+function salonCard(s,open){
+  const off=s.availability==="unavailable",services=s.services||[],g=guestUser();
   return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}${s.sample?' <span class="sample">Sample</span>':""}</h3>${availPill(s)}</div>
-    ${g?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
-      <div class="svc-list">${s.services.length?s.services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${inr(v.price)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
-      <button class="btn primary" data-book="${s.id}" ${off||!s.services.length?"disabled":""}>${off?"Not taking bookings":"Book"}</button>`
+    ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
+      <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${inr(v.price)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
+      ${s.sample?`<button class="btn" disabled>Sample salon, can't be booked</button>`:g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?"Not taking bookings":"Book"}</button>`:""}`
     :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
   </article>`;
 }
 function bookingView(g){
-  const s=salon(gb.salon);
-  if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(new Date(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
+  const s=salonById(gb.salon);
+  if(!s)return `<p class="small">This salon isn't taking bookings any more.</p><div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`;
+  if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(dayOf(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
     <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${inr(b.price)}, paid at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
     <div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`}
-  const busy=[["10:00","12:30","15:00"],["09:30","11:00","16:30"],["13:00","14:00","17:30"]][gb.day%3];
   const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
-  const v=s.services.find(x=>x.id===gb.svc);
+  const services=s.services||[],v=services.find(x=>x.id===gb.svc),n=new Date();
   return `<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)} · ${availPill(s)}</p></div><button class="btn" id="gb-back">Back to salons</button></div>
-    <h2>Choose a service</h2><div class="choices">${s.services.map(x=>`<button class="choice" data-svc="${x.id}" aria-pressed="${gb.svc===x.id}"><b>${esc(x.name)}</b><span class="price num">${inr(x.price)}</span></button>`).join("")}</div>
+    <h2>Choose a service</h2><div class="choices">${services.map(x=>`<button class="choice" data-svc="${x.id}" aria-pressed="${gb.svc===x.id}"><b>${esc(x.name)}</b><span class="price num">${inr(x.price)}</span></button>`).join("")}</div>
     <h2>Pick a day and time</h2>
     <div class="days">${days().map((d,i)=>`<button class="day" data-day="${i}" aria-pressed="${gb.day===i}"><small>${fmt(d,{weekday:"short"})}</small><b class="num">${d.getDate()}</b></button>`).join("")}</div>
-    <div class="slots">${times.map(t=>{const n=new Date(),off=busy.includes(t)||(gb.day===0&&mins(t)<=n.getHours()*60+n.getMinutes());return `<button class="slot" data-time="${t}" aria-pressed="${gb.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>
+    <div class="slots">${times.map(t=>{const off=gb.day===0&&mins(t)<=n.getHours()*60+n.getMinutes();return `<button class="slot" data-time="${t}" aria-pressed="${gb.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>
     <div class="panel summary"><dl><dt>Name</dt><dd>${esc(g.name)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(g.wa)}</dd><dt>Service</dt><dd>${v?`${esc(v.name)} · ${inr(v.price)}`:"Choose a service"}</dd><dt>When</dt><dd>${gb.time?`${fmt(days()[gb.day],{weekday:"short",day:"numeric",month:"short"})}, ${gb.time}`:"Choose a time"}</dd></dl>
+      ${guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:""}
       <button class="btn primary block" id="gb-confirm" ${v&&gb.time?"":"disabled"}>Book appointment</button></div>`;
 }
+function myBookings(){
+  const today=ymd(new Date());
+  const up=data.bookings.filter(b=>b.date>=today).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  if(!up.length)return "";
+  return `<div class="panel"><div class="panel-head"><h3>Your bookings</h3><span>${up.length}</span></div><div class="list">
+    ${up.map(b=>{const s=salonById(b.salonId);return `<div class="list-item"><div><b>${esc(s?s.name:"Salon")}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b></div></div>`}).join("")}</div></div>`;
+}
 function renderGuests(){
-  const el=$("#sec-guests");const g=guestUser();
+  const el=$("#sec-guests"),g=guestUser();
+  if(db&&!me.ready){el.innerHTML=loadingView;return}
+  if(me.user&&!me.role&&guestView!=="sent")guestView="profile";
   let body;
-  if(!g&&guestView!=="list")body=`<div class="auth">${document.querySelector(".top .logo").outerHTML}${guestAuthView()}</div>`;
+  if(guestView!=="list"&&!g)body=`<div class="auth">${logo()}${guestAuthView()}</div>`;
   else if(g&&gb.salon)body=`<div class="guest">${bookingView(g)}</div>`;
-  else{const list=listedSalons();
+  else{const list=listedSalons(),open=!!me.user;
     body=`<div class="guest">
-    <div class="next"><div class="next-tile">${icon("store").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">${g?`Hi ${esc(g.name.split(" ")[0])}`:"Find a salon"}</span><h2>Salons on Beautinix</h2><p>${g?"Pick a salon to see its services and book.":"Create a free account to see services, prices and contact details."}</p></div>
-      ${g?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
-    ${list.length?`<div class="cards">${list.map(s=>salonCard(s,g)).join("")}</div>`:`<p class="small">No salons yet. They appear here once the salon owner creates an account.</p>`}
+    <div class="next"><div class="next-tile">${icon("store").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">${g?`Hi ${esc(g.name.split(" ")[0])}`:open?"Signed in":"Find a salon"}</span><h2>Salons on Beautinix</h2><p>${g?"Pick a salon to see its services and book.":open?"Guests can book from their own account.":"Create a free account to see services, prices and contact details."}</p></div>
+      ${open?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
+    ${db?"":offlineView}${dbNote()}
+    ${g?myBookings():""}
+    <div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>
     </div>`}
   el.innerHTML=body;
   el.querySelectorAll("[data-gv]").forEach(b=>b.onclick=()=>{guestView=b.dataset.gv;guestErr="";renderGuests();window.scrollTo(0,0)});
   bindDigits(el);
   const fail=m=>{guestErr=m;renderGuests()};
-  const byEmail=m=>GUESTS_ACC.find(x=>x.email===m.trim().toLowerCase());
-  const su=$("#g-signup");if(su)su.onsubmit=async e=>{e.preventDefault();
-    guestDraft={name:$("#gs-name").value.trim(),wa:waDigits($("#gs-wa").value),email:$("#gs-email").value.trim().toLowerCase()};
-    const d=guestDraft;
-    const m=!d.name?"Enter your name.":waProblem(d.wa)||emailProblem(d.email)||(byEmail(d.email)?"An account with this email already exists. Sign in instead.":"")||pwProblem($("#gs-pw").value,$("#gs-pw2").value);
-    if(m)return fail(m);
-    const n={id:"g"+Date.now(),name:d.name,wa:waFmt(d.wa),email:d.email,pwHash:await hashPw($("#gs-pw").value)};
-    GUESTS_ACC.push(n);saveGuests();guestDraft={};sess.set("bx-guest-user",n.id);guestView="list";guestErr="";showSection("guests");toast("Account created. Salon details are now visible.")};
+  const su=$("#g-signup");if(su){
+    const grab=()=>{guestDraft={name:$("#gs-name").value.trim(),wa:waDigits($("#gs-wa").value),email:$("#gs-email").value.trim().toLowerCase()}};
+    su.addEventListener("input",grab);
+    su.onsubmit=async e=>{e.preventDefault();grab();
+      const d=guestDraft,pw=$("#gs-pw").value;
+      const m=!d.name?"Enter your name.":waProblem(d.wa)||emailProblem(d.email)||pwProblem(pw,$("#gs-pw2").value);
+      if(m)return fail(m);
+      if(!db)return fail(errMsg({code:"unavailable"}));
+      lock(su);
+      try{await withAuth(async()=>{
+        const cred=await auth.createUserWithEmailAndPassword(d.email,pw);
+        await col("guests").doc(cred.user.uid).set({name:d.name,wa:waFmt(d.wa),email:d.email,createdAt:now()});
+      })}catch(err){console.error(err);return fail(errMsg(err))}
+      guestDraft={};guestView="list";guestErr="";showSection("guests");toast("Account created. Salon details are now visible.")}}
   const li=$("#g-login");if(li)li.onsubmit=async e=>{e.preventDefault();
-    const x=byEmail($("#gl-email").value);
-    if(!x||x.pwHash!==await hashPw($("#gl-pw").value))return fail("That email and password don't match. Check them, or reset your password.");
-    sess.set("bx-guest-user",x.id);guestView="list";guestErr="";showSection("guests");toast(`Welcome back, ${x.name.split(" ")[0]}`)};
-  const fo=$("#g-forgot");if(fo)fo.onsubmit=e=>{e.preventDefault();
-    const x=byEmail($("#gf-email").value);if(!x)return fail("We don't have a guest account with that email.");
-    guestOtpFor=x.id;guestOtp=otp();guestView="reset";guestErr="";renderGuests()};
-  const re=$("#g-reset");if(re)re.onsubmit=async e=>{e.preventDefault();
-    if($("#gr-code").value.trim()!==guestOtp)return fail("That code isn't right. Check the 6 digits and try again.");
-    const p=$("#gr-pw").value,m=pwProblem(p,$("#gr-pw2").value);if(m)return fail(m);
-    const x=GUESTS_ACC.find(y=>y.id===guestOtpFor);x.pwHash=await hashPw(p);saveGuests();guestOtp=null;guestView="login";guestErr="";renderGuests();toast("Password changed. Sign in with your new password.")};
-  el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});renderGuests();window.scrollTo(0,0)});
-  $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;renderGuests()});
+    const m=$("#gl-email").value.trim().toLowerCase();if(emailProblem(m))return fail(emailProblem(m));
+    if(!db)return fail(errMsg({code:"unavailable"}));
+    lock(li);
+    try{await withAuth(()=>auth.signInWithEmailAndPassword(m,$("#gl-pw").value))}catch(err){return fail(errMsg(err))}
+    guestErr="";guestView=me.role?"list":"profile";showSection("guests");
+    toast(guestUser()?`Welcome back, ${guestUser().name.split(" ")[0]}`:"Signed in")};
+  const fo=$("#g-forgot");if(fo)fo.onsubmit=async e=>{e.preventDefault();
+    const m=$("#gf-email").value.trim().toLowerCase();if(emailProblem(m))return fail(emailProblem(m));
+    lock(fo);
+    try{await auth.sendPasswordResetEmail(m)}catch(err){if(!/user-not-found/.test(err.code))return fail(errMsg(err))}
+    guestResetFor=m;guestView="sent";guestErr="";renderGuests()};
+  const pf=$("#g-profile");if(pf)pf.onsubmit=async e=>{e.preventDefault();
+    const name=$("#gp-name").value.trim(),wa=waDigits($("#gp-wa").value);
+    guestDraft={name,wa};
+    const m=!name?"Enter your name.":waProblem(wa);if(m)return fail(m);
+    lock(pf);
+    try{await withAuth(()=>col("guests").doc(me.user.uid).set({name,wa:waFmt(wa),email:(me.user.email||"").toLowerCase(),createdAt:now()}))}catch(err){console.error(err);return fail(errMsg(err))}
+    guestDraft={};guestView="list";guestErr="";showSection("guests");toast("Saved. Salon details are now visible.")};
+  el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});guestErr="";renderGuests();window.scrollTo(0,0)});
+  $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;guestErr="";renderGuests()});
   el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{gb.svc=b.dataset.svc;renderGuests()});
   el.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{gb.day=+b.dataset.day;gb.time=null;renderGuests()});
   el.querySelectorAll("[data-time]").forEach(b=>b.onclick=()=>{gb.time=b.dataset.time;renderGuests()});
-  $("#gb-confirm")&&($("#gb-confirm").onclick=()=>{const s=salon(gb.salon),v=s.services.find(x=>x.id===gb.svc),d=days()[gb.day];
-    const b={id:"b"+Date.now(),salon:s.id,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,time:gb.time};
-    BOOKINGS.push(b);saveBookings();gb.done=b;renderGuests();window.scrollTo(0,0)});
+  const bc=$("#gb-confirm");if(bc)bc.onclick=async()=>{const s=salonById(gb.salon),v=s.services.find(x=>x.id===gb.svc),d=days()[gb.day];
+    bc.disabled=true;
+    const b={salonId:s.id,ownerUid:s.ownerUid,guestUid:me.user.uid,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,date:ymd(d),time:gb.time,createdAt:now()};
+    try{await col("bookings").add(b)}catch(err){console.error(err);return fail(errMsg(err))}
+    gb.done=b;guestErr="";renderGuests();window.scrollTo(0,0)};
 }
 
 showSection((location.hash||"#admin").slice(1));

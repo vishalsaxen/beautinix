@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// Beautinix database rules. Publish them in the Firebase console:
+// Firestore Database → Rules → paste this file → Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.email == "admin@beautinix.de"; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
+    function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }
+
+    // Full salon details. Signed-in users only; signed-out guests see the listings below.
+    match /salons/{id} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        // The owner edits their services and availability.
+        || (signedIn() && resource.data.ownerUid == request.auth.uid
+            && changed().hasOnly(["services", "availability"])
+            && request.resource.data.services is list
+            && request.resource.data.services.size() <= 100
+            && validAvailability(request.resource.data.availability))
+        // The owner claims the salon with the unique code sent on WhatsApp.
+        || (signedIn() && resource.data.ownerUid == null
+            && request.auth.token.email == resource.data.email
+            && changed().hasOnly(["ownerUid", "status", "claimCode"])
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.status == "active"
+            && get(path("invites", request.resource.data.claimCode)).data.salonId == id
+            && get(path("invites", request.resource.data.claimCode)).data.used == false
+            && getAfter(path("invites", request.resource.data.claimCode)).data.used == true);
+    }
+
+    // Public part of a salon: name and availability only.
+    match /listings/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (signedIn() && getAfter(path("salons", id)).data.ownerUid == request.auth.uid
+            && changed().hasOnly(["availability", "active"])
+            && validAvailability(request.resource.data.availability));
+    }
+
+    // Sign-up codes. Anyone holding a code can look it up; only the admin can list them.
+    match /invites/{code} {
+      allow get: if true;
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (signedIn() && request.auth.token.email == resource.data.email
+            && changed().hasOnly(["used"])
+            && request.resource.data.used == true);
+    }
+
+    // Guest accounts: each guest reads and writes only their own details.
+    match /guests/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["name", "wa", "email", "createdAt"])
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if signedIn() && request.auth.uid == uid && changed().hasOnly(["name", "wa"]);
+      allow delete: if isAdmin();
+    }
+
+    // Bookings: made by a guest, seen by that guest, the salon's owner and the admin.
+    match /bookings/{id} {
+      allow read: if isAdmin()
+        || (signedIn() && (resource.data.ownerUid == request.auth.uid || resource.data.guestUid == request.auth.uid));
+      allow create: if signedIn()
+        && request.resource.data.guestUid == request.auth.uid
+        && exists(path("guests", request.auth.uid))
+        && request.resource.data.ownerUid != null
+        && get(path("salons", request.resource.data.salonId)).data.ownerUid == request.resource.data.ownerUid;
+      allow delete: if isAdmin();
+    }
+  }
+}
