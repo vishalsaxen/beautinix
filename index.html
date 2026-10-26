@@ -349,16 +349,13 @@ try{
 const now=()=>firebase.firestore.FieldValue.serverTimestamp();
 const col=n=>db.collection(n);
 
-// Sample listing so die Gäste isn't empty. It lives only in this page and can't be booked.
-const SAMPLE={id:"sample-pallavi",sample:true,status:"active",name:"Pallavi's Paradise",person:"Pallavi",wa:"+91 98765 43210",state:"Madhya Pradesh",city:"Indore",pin:"452001",availability:"available",
-  services:[{id:"p1",name:"Facial",price:450},{id:"p2",name:"Eyebrow threading",price:50},{id:"p3",name:"Waxing (full arms)",price:300},{id:"p4",name:"Haircut",price:250},{id:"p5",name:"Hair spa",price:800},{id:"p6",name:"Bridal makeup",price:8000}]};
 
 // ---------- Helpers ----------
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const inr=n=>"₹"+Number(n).toLocaleString("en-IN");
-// A price is one amount (450) or a range (450-900) when the final price depends on the guest.
-const priceText=v=>v.priceMax?`${inr(v.price)}–${inr(v.priceMax)}`:inr(v.price);
+// A price is a starting amount (450, shown "₹450 & onwards") or a range (450-900).
+const priceText=v=>v.priceMax?`${inr(v.price)}–${inr(v.priceMax)}`:`${inr(v.price)} & onwards`;
 const priceInput=v=>v.priceMax?`${v.price}-${v.priceMax}`:String(v.price);
 function parsePrice(t){
   const m=String(t).trim().match(/^(\d{1,6})(?:\s*(?:-|–|to)\s*(\d{1,6}))?$/i);
@@ -395,7 +392,7 @@ let listings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
 const isAdmin=()=>me.role==="admin";
 const salonUser=()=>me.role==="owner"?data.salons.find(s=>s.id===me.salonId)||null:null;
 const guestUser=()=>me.role==="guest"?me.guest:null;
-const salonById=id=>id===SAMPLE.id?SAMPLE:data.salons.find(s=>s.id===id);
+const salonById=id=>data.salons.find(s=>s.id===id);
 
 function listen(q,fn){unsubs.push(q.onSnapshot(fn,e=>{console.error(e);dbErr=errMsg(e);rerender()}))}
 const docs=s=>s.docs.map(d=>({id:d.id,...d.data()}));
@@ -944,7 +941,7 @@ function bindEdit(el,s){
 // ---------- Salon services & availability (owner) ----------
 const AVAIL={available:["Available","s-confirmed"],busy:["Busy","s-pending"],unavailable:["Not available","s-cancelled"]};
 const availPill=s=>{const[a,c]=AVAIL[s.availability]||AVAIL.available;return `<span class="pill ${c}">${a}</span>`};
-const QUICK=["Facial","Clean-up","Eyebrow threading","Upper lip threading","Waxing (full arms)","Haircut","Hair spa","Hair colour","Manicure","Pedicure","Party makeup","Bridal makeup"];
+const QUICK=["Facial","Bleach","Clean-up","Eyebrow threading","Upper lip threading","Waxing (full arms)","Haircut","Hair spa","Hair colour","Manicure","Pedicure","Party makeup","Bridal makeup"];
 const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
 const dayOf=s=>new Date(s+"T00:00");
 let svcErr="";
@@ -1056,8 +1053,7 @@ const gb={salon:null,svc:null,day:0,time:null,done:null};
 function days(){const out=[];const d=new Date();d.setHours(0,0,0,0);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const MASK="*****";
-// The sample only fills the page until the first real salon is listed.
-const listedSalons=()=>{const real=me.user?data.salons.filter(s=>s.status==="active"):listings;return real.length?real:[SAMPLE]};
+const listedSalons=()=>me.user?data.salons.filter(s=>s.status==="active"):listings;
 
 function guestAuthView(){
   const err=guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:"";
@@ -1094,10 +1090,10 @@ function guestAuthView(){
 }
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
-  return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}${s.sample?' <span class="sample">Sample</span>':""}</h3>${availPill(s)}</div>
+  return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
-      ${s.sample?`<button class="btn" disabled>Sample salon, can't be booked</button>`:g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
+      ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
     :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
   </article>`;
@@ -1106,7 +1102,7 @@ function bookingView(g){
   const s=salonById(gb.salon);
   if(!s)return `<p class="small">This salon isn't taking bookings any more.</p><div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`;
   if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(dayOf(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
-    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${priceText(b)}${b.priceMax?", final price at the salon":", paid at the salon"}</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
+    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${priceText(b)}, final price at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
     <div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`}
   const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
   const services=s.services||[],v=services.find(x=>x.id===gb.svc),n=new Date();
@@ -1140,7 +1136,7 @@ function renderGuests(){
       ${open?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
     ${db?"":offlineView}${dbNote()}
     ${g?myBookings():""}
-    <div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>
+    ${list.length?`<div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>`:`<div class="panel"><p class="small">No salons are listed yet. Check back soon.</p></div>`}
     </div>`}
   el.innerHTML=body;
   el.querySelectorAll("[data-gv]").forEach(b=>b.onclick=()=>{guestView=b.dataset.gv;guestErr="";renderGuests();window.scrollTo(0,0)});
