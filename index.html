@@ -161,6 +161,14 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .meta a .ico{width:15px;height:15px}
 .panel .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
 .links-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.near-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:0 0 10px}
+.near-note .ico,.dist .ico{width:15px;height:15px;color:var(--accent)}
+.dist{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;margin:-4px 0 0}
+.loc-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.loc-row p{margin:2px 0 0}
+.geo-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font-weight:700;font-size:13px;padding:8px 12px;border-radius:999px}
+.geo-chip .ico{width:15px;height:15px;color:var(--accent)}
+.geo-chip:hover{border-color:var(--accent-line)}
 #links-form .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
@@ -332,6 +340,7 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
     <div class="brand-meta"><span class="chip live" id="role-chip">Admin</span><span class="site"><svg class="ico"><use href="#i-shield"/></svg>Partner - GiaZoNest</span></div>
   </div>
   <div class="top-actions">
+    <button class="geo-chip" id="geo-pin" aria-label="Your location" hidden><svg class="ico"><use href="#i-pin"/></svg><span class="lbl" id="geo-pin-txt">Locating…</span></button>
     <button class="icon-btn" id="refresh" aria-label="Refresh"><svg class="ico"><use href="#i-refresh"/></svg></button>
     <button class="ghost-btn" id="signin" aria-label="Admin sign-in" hidden><svg class="ico"><use href="#i-lock"/></svg><span class="lbl">Admin sign-in</span></button>
     <button class="icon-btn" id="logout" aria-label="Sign out" hidden><svg class="ico"><use href="#i-logout"/></svg></button>
@@ -502,6 +511,7 @@ function showSection(sec,keep){
   $("#signin").hidden=!!me.user||sec==="admin";
   $("#logout").hidden=!me.user;
   $("#role-chip").textContent=CHIP[sec];
+  geoChip();
   ({admin:renderAdmin,salon:renderSalon,guests:renderGuests})[sec]();
   try{history.replaceState(null,"",location.search+"#"+sec)}catch(e){}
   if(!keep)window.scrollTo(0,0);
@@ -963,6 +973,7 @@ function bindEdit(el,s){
       batch.update(col("salons").doc(s.id),{name:d.name,person:d.person,wa,state:d.state,city:d.city,pin:d.pin});
       batch.update(col("listings").doc(s.id),{name:d.name});
       await batch.commit();
+      if(d.pin!==s.pin)autoGeo({...s,pin:d.pin},true);
       editing=false;edDraft=null;toast("Details saved");
     }catch(err){console.error(err);edErr={save:errMsg(err)}}
     edSaving=false;renderSalon()};
@@ -1085,6 +1096,55 @@ setInterval(()=>{
 // One large photo per salon. It's resized in the browser and stored in Firestore: the full image in photos/{id}
 // (under 1 MB) and a small thumbnail on the public listing, so guests see it on the salon card.
 const thumbOf=id=>{const l=listings.find(x=>x.id===id);return l&&l.thumb||""};
+
+// ---------- Location: salons keep a rough position (about 1 km) on their public listing ----------
+const geoOf=id=>{const l=listings.find(x=>x.id===id);return l&&l.geo||null};
+const round2=n=>Math.round(n*100)/100;
+const inIndia=(lat,lng)=>lat>=6&&lat<=38&&lng>=68&&lng<=98;
+function km(a,b){const r=x=>x*Math.PI/180,dLat=r(b.lat-a.lat),dLng=r(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;return 12742*Math.asin(Math.sqrt(h))}
+const kmText=d=>d<1?"under 1 km away":d<10?`${d.toFixed(1)} km away`:`${Math.round(d)} km away`;
+function saveGeo(s,lat,lng,approx){
+  if(!inIndia(lat,lng))return Promise.reject({code:"out-of-india"});
+  return col("listings").doc(s.id).update({geo:{lat:round2(lat),lng:round2(lng),approx}});
+}
+// Until the owner sets the exact spot, place the salon roughly from its PIN code (OpenStreetMap, free).
+const geoTried={};
+async function autoGeo(s,force){
+  if(geoTried[s.id]&&!force)return;geoTried[s.id]=true;
+  const g=geoOf(s.id);if(g&&(!g.approx||!force))return;
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&country=India&postalcode=${encodeURIComponent(s.pin)}`);
+    const [hit]=await r.json();if(hit)await saveGeo(s,+hit.lat,+hit.lon,true)}catch(e){console.warn("PIN lookup failed",e)}
+}
+// Guests: ask for their location once, then list the nearest salons first.
+let guestPos=null,geoState="idle",guestPin="";
+function askGuestPos(){
+  if(!navigator.geolocation){geoState="unsupported";geoChip();return}
+  geoState="asking";geoChip();
+  navigator.geolocation.getCurrentPosition(p=>{guestPos={lat:p.coords.latitude,lng:p.coords.longitude};geoState="ok";geoChip();renderGuests();findPin()},
+    e=>{geoState=e.code===1?"denied":"failed";geoChip();renderGuests()},{enableHighAccuracy:false,timeout:15000,maximumAge:600000});
+}
+// The guest's PIN code, looked up from their position (OpenStreetMap, free), shown top right.
+async function findPin(){
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=16&lat=${guestPos.lat}&lon=${guestPos.lng}`);
+    const j=await r.json(),pc=j.address&&j.address.postcode;guestPin=pc?String(pc).replace(/\s/g,""):""}catch(e){console.warn("PIN lookup failed",e)}
+  geoChip();
+}
+function geoChip(){
+  const b=$("#geo-pin");if(!b)return;
+  b.hidden=current!=="guests"||geoState==="unsupported";
+  $("#geo-pin-txt").textContent=geoState==="ok"?(guestPin?`PIN ${guestPin}`:"Near you"):geoState==="asking"?"Locating…":"Set location";
+}
+$("#geo-pin").onclick=()=>{askGuestPos();renderGuests()};
+const distOf=s=>{const g=geoOf(s.id);return guestPos&&g?km(guestPos,g):null};
+function nearFirst(list){if(!guestPos)return list;
+  return list.map(s=>[s,distOf(s)]).sort((a,b)=>(a[1]??1e9)-(b[1]??1e9)).map(x=>x[0])}
+function nearNote(){
+  if(geoState==="ok")return `<p class="near-note">${icon("pin")}Nearest salons first</p>`;
+  if(geoState==="asking")return `<p class="near-note">${icon("pin")}Finding salons near you…</p>`;
+  if(geoState==="unsupported")return "";
+  return `<p class="near-note">${icon("pin")}${geoState==="denied"?"Location is off, so salons aren't sorted by distance.":"Couldn't get your location."} <button class="link" id="near-retry">Use my location</button></p>`;
+}
 let photoBusy=false,photoErr="";
 function loadImage(file){return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);bad(new Error("bad image"))};i.src=u})}
 function drawJpeg(img,w,h,sx,sy,sw,sh,maxBytes){
@@ -1113,7 +1173,7 @@ function instaLink(v){v=v.trim();if(!v)return "";
   return m?`https://www.instagram.com/${m[1]}`:null}
 const instaHandle=u=>"@"+u.split("/").pop();
 const linkRows=s=>`${s.maps?`<dt>Map</dt><dd><a href="${esc(s.maps)}" target="_blank" rel="noopener">${icon("pin")}Open in Google Maps</a></dd>`:""}${s.insta?`<dt>Instagram</dt><dd><a href="${esc(s.insta)}" target="_blank" rel="noopener">${icon("camera")}${esc(instaHandle(s.insta))}</a></dd>`:""}`;
-let linksErr="",linksDraft=null;
+let linksErr="",linksDraft=null,locBusy=false;
 function linksPanel(s,editable){
   if(!editable)return s.maps||s.insta?`<div class="panel"><div class="panel-head"><h3>Map and Instagram</h3></div><dl class="meta">${linkRows(s)}</dl></div>`:"";
   const d=linksDraft||{maps:s.maps||"",insta:s.insta||""};
@@ -1121,10 +1181,21 @@ function linksPanel(s,editable){
     <div class="grid2 links-grid"><label class="f">Google Maps link<input class="input" id="ln-maps" value="${esc(d.maps)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off"></label>
     <label class="f">Instagram<input class="input" id="ln-insta" value="${esc(d.insta)}" placeholder="https://www.instagram.com/yoursalon" inputmode="url" autocomplete="off"></label></div>
     ${linksErr?`<p class="err" role="alert">${esc(linksErr)}</p>`:""}
-    <div class="row"><button class="btn primary" type="submit">Publish</button>${s.maps||s.insta?`<dl class="meta">${linkRows(s)}</dl>`:""}</div></form>`;
+    <div class="row"><button class="btn primary" type="submit">Publish</button>${s.maps||s.insta?`<dl class="meta">${linkRows(s)}</dl>`:""}</div>
+    <div class="loc-row"><div><b>Salon location</b><p class="small">${geoOf(s.id)?(geoOf(s.id).approx?"Set roughly from your PIN code. Stand in your salon and press the button to set it exactly.":"Set. Guests nearby see your salon first."):"Not set yet. Stand in your salon and press the button so nearby guests see you first."}</p></div>
+      <button class="btn" type="button" id="loc-set">${icon("pin")}${locBusy?"Getting location…":"Use my current location"}</button></div></form>`;
 }
 function bindLinks(el,s){
   const f=$("#links-form");if(!f)return;
+  autoGeo(s);
+  $("#loc-set").onclick=()=>{if(!navigator.geolocation)return toast("This browser can't share its location.");
+    locBusy=true;renderSalon();
+    navigator.geolocation.getCurrentPosition(async p=>{
+      try{await saveGeo(s,p.coords.latitude,p.coords.longitude,false);toast("Salon location saved. Nearby guests see you first.")}
+      catch(e){console.error(e);toast(e.code==="out-of-india"?"That location is outside India.":errMsg(e))}
+      locBusy=false;renderSalon()},
+      e=>{locBusy=false;renderSalon();toast(e.code===1?"Allow location for this site in your browser settings, then try again.":"Couldn't get your location. Try again.")},
+      {enableHighAccuracy:true,timeout:20000,maximumAge:0})};
   f.addEventListener("input",()=>{linksDraft={maps:$("#ln-maps").value,insta:$("#ln-insta").value}});
   f.onsubmit=async e=>{e.preventDefault();
     const maps=mapsLink($("#ln-maps").value),insta=instaLink($("#ln-insta").value);
@@ -1215,7 +1286,7 @@ function guestAuthView(){
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   const th=thumbOf(s.id);
-  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
+  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${distOf(s)!=null?`<p class="dist">${icon("pin")}${kmText(distOf(s))}</p>`:""}${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd>${linkRows(s)}</dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
@@ -1263,13 +1334,14 @@ function renderGuests(){
   let body;
   if(guestView!=="list"&&!g)body=`<div class="auth">${logo()}${guestAuthView()}</div>`;
   else if(g&&gb.salon)body=`<div class="guest">${bookingView(g)}</div>`;
-  else{const list=listedSalons(),open=!!me.user;
+  else{if(geoState==="idle")askGuestPos();
+    const list=nearFirst(listedSalons()),open=!!me.user;
     body=`<div class="guest">
     <div class="next"><div class="next-tile">${icon("store").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">${g?`Hi ${esc(g.name.split(" ")[0])}`:open?"Signed in":"Find a salon"}</span><h2>Salons on Beautinix</h2><p>${g?"Pick a salon to see its services and book.":open?"Guests can book from their own account.":"Create a free account to see services, prices and contact details."}</p></div>
       ${open?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
     ${db?"":offlineView}${dbNote()}
     ${g?myBookings():""}
-    ${list.length?`<div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>`:`<div class="panel"><p class="small">No salons are listed yet. Check back soon.</p></div>`}
+    ${list.length?`${nearNote()}<div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>`:`<div class="panel"><p class="small">No salons are listed yet. Check back soon.</p></div>`}
     </div>`}
   el.innerHTML=body;
   el.querySelectorAll("[data-gv]").forEach(b=>b.onclick=()=>{guestView=b.dataset.gv;guestErr="";renderGuests();window.scrollTo(0,0)});
@@ -1309,6 +1381,7 @@ function renderGuests(){
     try{await withAuth(()=>col("guests").doc(me.user.uid).set({name,wa:waFmt(wa),email:(me.user.email||"").toLowerCase(),createdAt:now()}))}catch(err){console.error(err);return fail(errMsg(err))}
     guestDraft={};guestView="list";guestErr="";showSection("guests");toast("Saved. Salon details are now visible.")};
   el.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>openPhoto(b.dataset.photo));
+  $("#near-retry")&&($("#near-retry").onclick=()=>{askGuestPos();renderGuests()});
   el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});guestErr="";renderGuests();window.scrollTo(0,0)});
   $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;guestErr="";renderGuests()});
   el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{gb.svc=b.dataset.svc;renderGuests()});

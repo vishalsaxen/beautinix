@@ -16,6 +16,13 @@ service cloud.firestore {
           && d.maps.matches("https://(maps[.]app[.]goo[.]gl|goo[.]gl/maps|(www[.])?google[.](com|co[.]in)/maps|maps[.]google[.](com|co[.]in))/[^ <>\"]*")))
         && (!("insta" in d) || d.insta == "" || (d.insta is string && d.insta.matches("https://www[.]instagram[.]com/[A-Za-z0-9_.]{1,30}")));
     }
+    // A salon's rough position (about 1 km), used to show guests the nearest salons first.
+    function validGeo(g) {
+      return g is map && g.keys().hasOnly(["lat", "lng", "approx"])
+        && g.lat is number && g.lat >= 6 && g.lat <= 38
+        && g.lng is number && g.lng >= 68 && g.lng <= 98
+        && g.approx is bool;
+    }
     function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }
     function validTerms(t) { return t.version is string && t.fee == 200 && t.acceptedAt == request.time; }
     function validDetails(d) {
@@ -54,16 +61,17 @@ service cloud.firestore {
             && getAfter(path("invites", request.resource.data.claimCode)).data.used == true);
     }
 
-    // Public part of a salon: name and availability only.
+    // Public part of a salon: name, availability, photo thumbnail and rough position.
     match /listings/{id} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (signedIn() && getAfter(path("salons", id)).data.ownerUid == request.auth.uid
-            && changed().hasOnly(["availability", "active", "name", "thumb"])
+            && changed().hasOnly(["availability", "active", "name", "thumb", "geo"])
             && request.resource.data.name == getAfter(path("salons", id)).data.name
             && validAvailability(request.resource.data.availability)
-            && (!("thumb" in request.resource.data) || validImage(request.resource.data.thumb, 100000)));
+            && (!("thumb" in request.resource.data) || validImage(request.resource.data.thumb, 100000))
+            && (!("geo" in request.resource.data) || validGeo(request.resource.data.geo)));
     }
 
     // The salon's one large photo; its thumbnail sits on the listing.
