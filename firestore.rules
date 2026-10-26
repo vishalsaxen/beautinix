@@ -84,7 +84,9 @@ service cloud.firestore {
         && request.resource.data.guestUid == request.auth.uid
         && exists(path("guests", request.auth.uid))
         && request.resource.data.ownerUid != null
-        && get(path("salons", request.resource.data.salonId)).data.ownerUid == request.resource.data.ownerUid;
+        && get(path("salons", request.resource.data.salonId)).data.ownerUid == request.resource.data.ownerUid
+        // Only salons marked Available take bookings.
+        && get(path("salons", request.resource.data.salonId)).data.availability == "available";
       allow delete: if isAdmin();
     }
   }
