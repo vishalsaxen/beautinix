@@ -357,6 +357,15 @@ const SAMPLE={id:"sample-pallavi",sample:true,status:"active",name:"Pallavi's Pa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const inr=n=>"₹"+Number(n).toLocaleString("en-IN");
+// A price is one amount (450) or a range (450-900) when the final price depends on the guest.
+const priceText=v=>v.priceMax?`${inr(v.price)}–${inr(v.priceMax)}`:inr(v.price);
+const priceInput=v=>v.priceMax?`${v.price}-${v.priceMax}`:String(v.price);
+function parsePrice(t){
+  const m=String(t).trim().match(/^(\d{1,6})(?:\s*(?:-|–|to)\s*(\d{1,6}))?$/i);
+  if(!m||+m[1]<1)return null;
+  if(!m[2])return {price:+m[1]};
+  return +m[2]>+m[1]?{price:+m[1],priceMax:+m[2]}:null;
+}
 const mins=t=>{const[h,m]=t.split(":").map(Number);return h*60+m};
 const icon=n=>`<svg class="ico"><use href="#i-${n}"/></svg>`;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
@@ -497,7 +506,7 @@ const waField=(id,val)=>`<span class="wa-field"><span class="cc mono">+91</span>
 const waDigits=v=>String(v).replace(/\D/g,"");
 const waProblem=d=>/^[0-9]{10}$/.test(d)?"":"Enter exactly 10 digits after +91.";
 const waFmt=d=>`+91 ${d.slice(0,5)} ${d.slice(5)}`;
-function bindDigits(root){root.querySelectorAll(".wa-field input,.price-field input,input[inputmode=numeric]").forEach(i=>i.addEventListener("input",()=>{const c=i.value.replace(/\D/g,"").slice(0,i.maxLength>0?i.maxLength:99);if(c!==i.value)i.value=c}))}
+function bindDigits(root){root.querySelectorAll(".wa-field input,input[inputmode=numeric]").forEach(i=>i.addEventListener("input",()=>{const c=i.value.replace(/\D/g,"").slice(0,i.maxLength>0?i.maxLength:99);if(c!==i.value)i.value=c}))}
 function newCode(){const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";return "BX-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),n=>A[n%A.length]).join("")}
 async function freeCode(){for(;;){const c=newCode();if(!(await col("invites").doc(c).get()).exists)return c}}
 function pwProblem(p,p2){
@@ -945,12 +954,12 @@ function ownerPanels(s,editable){
   return `<div class="grid2">
   <div class="panel"><div class="panel-head"><h3>Services and prices</h3><span>${services.length} listed</span></div>
     ${services.length?`<div class="list">${services.map(v=>`<div class="list-item"><b>${esc(v.name)}</b>
-      <div class="row-actions">${editable?`<span class="price-field"><span class="cc">₹</span><input class="input mono" data-price="${v.id}" inputmode="numeric" maxlength="6" value="${v.price}" aria-label="Price for ${esc(v.name)}"></span><button class="btn sm" data-del="${v.id}">Remove</button>`:`<span class="num price">${inr(v.price)}</span>`}</div></div>`).join("")}</div>`
-      :`<p class="small">No services yet.${editable?" Add your first one below, for example Facial for ₹450.":""}</p>`}
+      <div class="row-actions">${editable?`<span class="price-field"><span class="cc">₹</span><input class="input mono" data-price="${v.id}" maxlength="15" value="${priceInput(v)}" aria-label="Price for ${esc(v.name)}"></span><button class="btn sm" data-del="${v.id}">Remove</button>`:`<span class="num price">${priceText(v)}</span>`}</div></div>`).join("")}</div>`
+      :`<p class="small">No services yet.${editable?" Add your first one below, for example Facial for ₹450, or 450-900 if the price depends on the guest.":""}</p>`}
     ${editable?`<form id="svc-form" class="svc-add" novalidate>
       <label class="f">Service<input class="input" id="sv-name" list="sv-quick" placeholder="Facial" autocomplete="off"></label>
       <datalist id="sv-quick">${QUICK.filter(q=>!services.some(v=>v.name.toLowerCase()===q.toLowerCase())).map(q=>`<option value="${q}">`).join("")}</datalist>
-      <label class="f">Price<span class="price-field"><span class="cc">₹</span><input class="input mono" id="sv-price" inputmode="numeric" maxlength="6" placeholder="450"></span></label>
+      <label class="f">Price<span class="price-field"><span class="cc">₹</span><input class="input mono" id="sv-price" maxlength="15" placeholder="450 or 450-900"></span></label>
       <button class="btn primary" type="submit">Add service</button>
       ${svcErr?`<p class="err" role="alert" style="grid-column:1/-1">${esc(svcErr)}</p>`:""}
     </form>`:""}
@@ -960,7 +969,7 @@ function ownerPanels(s,editable){
     <div class="avail" role="group" aria-label="Availability">${Object.entries(AVAIL).map(([k,[l]])=>`<button class="avail-btn a-${k}" data-avail="${k}" aria-pressed="${(s.availability||"available")===k}" ${editable?"":"disabled"}>${l}</button>`).join("")}</div>
     <div class="panel-head" style="margin-top:8px"><h3>Bookings</h3><span>${mine.length}</span></div>
     ${editable?alertsBox():""}
-    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item${freshIds.has(b.id)?" fresh":""}"><div><b>${esc(b.guest)}</b>${freshIds.has(b.id)?'<span class="new-badge">New</span>':""}<div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
+    ${mine.length?`<div class="list">${mine.map(b=>`<div class="list-item${freshIds.has(b.id)?" fresh":""}"><div><b>${esc(b.guest)}</b>${freshIds.has(b.id)?'<span class="new-badge">New</span>':""}<div class="sub">${esc(b.service)} · ${priceText(b)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b><div class="sub mono">${esc(b.wa)}</div></div></div>`).join("")}</div>`
       :`<p class="small">No bookings yet. They appear here when guests book.</p>`}
   </div></div>`;
 }
@@ -972,18 +981,20 @@ function bindOwner(el,s){
     const batch=db.batch();batch.update(ref,{availability:a});batch.update(col("listings").doc(s.id),{availability:a});
     batch.commit().then(()=>toast(`Guests now see: ${AVAIL[a][0]}`)).catch(e=>{console.error(e);toast(errMsg(e))})});
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>save({services:services.filter(v=>v.id!==b.dataset.del)},"Service removed"));
-  el.querySelectorAll("[data-price]").forEach(i=>i.onchange=()=>{const p=+i.value,v=services.find(x=>x.id===i.dataset.price);
-    if(!/^[0-9]{1,6}$/.test(i.value)||p<1){i.value=v.price;toast("Enter a price in whole rupees, for example 450");return}
-    save({services:services.map(x=>x.id===v.id?{...x,price:p}:x)},`${v.name} is now ${inr(p)}`)});
+  el.querySelectorAll("[data-price]").forEach(i=>i.onchange=()=>{const p=parsePrice(i.value),v=services.find(x=>x.id===i.dataset.price);
+    if(!p){i.value=priceInput(v);toast("Enter a price like 450, or a range like 450-900");return}
+    const {priceMax,...rest}=v;
+    save({services:services.map(x=>x.id===v.id?{...rest,...p}:x)},`${v.name} is now ${priceText(p)}`)});
   const f=$("#svc-form");if(f)f.onsubmit=e=>{e.preventDefault();
     const name=$("#sv-name").value.trim().replace(/\s+/g," "),pr=$("#sv-price").value.trim();
     svcErr=!name?"Enter the service name, for example Facial.":
       services.some(v=>v.name.toLowerCase()===name.toLowerCase())?`${name} is already on your list. Change its price above instead.`:
-      !/^[0-9]{1,6}$/.test(pr)||+pr<1?"Enter the price in whole rupees, for example 450.":"";
+      !parsePrice(pr)?"Enter the price in whole rupees, like 450, or a range like 450-900 if it depends on the guest.":"";
     if(svcErr){renderSalon();$("#sv-name").value=name;$("#sv-price").value=pr;return}
     const nm=name[0].toUpperCase()+name.slice(1);
     $("#sv-name").blur();$("#sv-price").blur();
-    save({services:[...services,{id:"v"+Date.now(),name:nm,price:+pr}]},`${nm} added at ${inr(+pr)}`)};
+    const p=parsePrice(pr);
+    save({services:[...services,{id:"v"+Date.now(),name:nm,...p}]},`${nm} added at ${priceText(p)}`)};
   bindDigits(el);
 }
 
@@ -1017,7 +1028,7 @@ function alertsBox(){
 const bookingWhen=b=>`${b.date===ymd(new Date())?"today":fmt(dayOf(b.date),{weekday:"short",day:"numeric",month:"short"})} at ${b.time}`;
 function bookingAlert(b,kind,left){
   const title=kind==="new"?`New booking: ${b.guest}`:`${b.guest} is due at ${b.time}`;
-  const body=kind==="new"?`${b.service} (${inr(b.price)}), ${bookingWhen(b)}. WhatsApp ${b.wa}`:`${b.service}, ${left?`in ${left} minute${left===1?"":"s"}`:"now"}. WhatsApp ${b.wa}`;
+  const body=kind==="new"?`${b.service} (${priceText(b)}), ${bookingWhen(b)}. WhatsApp ${b.wa}`:`${b.service}, ${left?`in ${left} minute${left===1?"":"s"}`:"now"}. WhatsApp ${b.wa}`;
   if(kind==="new")freshIds.add(b.id);
   if(alertsOn)buzz();
   showBanner(title,body);
@@ -1084,7 +1095,7 @@ function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}${s.sample?' <span class="sample">Sample</span>':""}</h3>${availPill(s)}</div>
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
-      <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${inr(v.price)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
+      <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${s.sample?`<button class="btn" disabled>Sample salon, can't be booked</button>`:g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
     :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
@@ -1094,16 +1105,16 @@ function bookingView(g){
   const s=salonById(gb.salon);
   if(!s)return `<p class="small">This salon isn't taking bookings any more.</p><div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`;
   if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(dayOf(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
-    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${inr(b.price)}, paid at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
+    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${priceText(b)}${b.priceMax?", final price at the salon":", paid at the salon"}</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
     <div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`}
   const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
   const services=s.services||[],v=services.find(x=>x.id===gb.svc),n=new Date();
   return `<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)} · ${availPill(s)}</p></div><button class="btn" id="gb-back">Back to salons</button></div>
-    <h2>Choose a service</h2><div class="choices">${services.map(x=>`<button class="choice" data-svc="${x.id}" aria-pressed="${gb.svc===x.id}"><b>${esc(x.name)}</b><span class="price num">${inr(x.price)}</span></button>`).join("")}</div>
+    <h2>Choose a service</h2><div class="choices">${services.map(x=>`<button class="choice" data-svc="${x.id}" aria-pressed="${gb.svc===x.id}"><b>${esc(x.name)}</b><span class="price num">${priceText(x)}</span></button>`).join("")}</div>
     <h2>Pick a day and time</h2>
     <div class="days">${days().map((d,i)=>`<button class="day" data-day="${i}" aria-pressed="${gb.day===i}"><small>${fmt(d,{weekday:"short"})}</small><b class="num">${d.getDate()}</b></button>`).join("")}</div>
     <div class="slots">${times.map(t=>{const off=gb.day===0&&mins(t)<=n.getHours()*60+n.getMinutes();return `<button class="slot" data-time="${t}" aria-pressed="${gb.time===t}" ${off?"disabled":""}>${t}</button>`}).join("")}</div>
-    <div class="panel summary"><dl><dt>Name</dt><dd>${esc(g.name)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(g.wa)}</dd><dt>Service</dt><dd>${v?`${esc(v.name)} · ${inr(v.price)}`:"Choose a service"}</dd><dt>When</dt><dd>${gb.time?`${fmt(days()[gb.day],{weekday:"short",day:"numeric",month:"short"})}, ${gb.time}`:"Choose a time"}</dd></dl>
+    <div class="panel summary"><dl><dt>Name</dt><dd>${esc(g.name)}</dd><dt>WhatsApp</dt><dd class="mono">${esc(g.wa)}</dd><dt>Service</dt><dd>${v?`${esc(v.name)} · ${priceText(v)}`:"Choose a service"}</dd><dt>When</dt><dd>${gb.time?`${fmt(days()[gb.day],{weekday:"short",day:"numeric",month:"short"})}, ${gb.time}`:"Choose a time"}</dd></dl>
       ${guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:""}
       ${s.availability&&s.availability!=="available"?`<p class="err" role="alert">${esc(s.name)} just changed to ${AVAIL[s.availability][0].toLowerCase()}. You can book again when it's available.</p>`:""}
       <button class="btn primary block" id="gb-confirm" ${v&&gb.time&&(s.availability||"available")==="available"?"":"disabled"}>Book appointment</button></div>`;
@@ -1113,7 +1124,7 @@ function myBookings(){
   const up=data.bookings.filter(b=>b.date>=today).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   if(!up.length)return "";
   return `<div class="panel"><div class="panel-head"><h3>Your bookings</h3><span>${up.length}</span></div><div class="list">
-    ${up.map(b=>{const s=salonById(b.salonId);return `<div class="list-item"><div><b>${esc(s?s.name:"Salon")}</b><div class="sub">${esc(b.service)} · ${inr(b.price)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b></div></div>`}).join("")}</div></div>`;
+    ${up.map(b=>{const s=salonById(b.salonId);return `<div class="list-item"><div><b>${esc(s?s.name:"Salon")}</b><div class="sub">${esc(b.service)} · ${priceText(b)}</div></div><div class="right"><b class="mono">${fmt(dayOf(b.date),{day:"numeric",month:"short"})} ${esc(b.time)}</b></div></div>`}).join("")}</div></div>`;
 }
 function renderGuests(){
   const el=$("#sec-guests"),g=guestUser();
@@ -1174,7 +1185,7 @@ function renderGuests(){
   el.querySelectorAll("[data-time]").forEach(b=>b.onclick=()=>{gb.time=b.dataset.time;renderGuests()});
   const bc=$("#gb-confirm");if(bc)bc.onclick=async()=>{const s=salonById(gb.salon),v=s.services.find(x=>x.id===gb.svc),d=days()[gb.day];
     bc.disabled=true;
-    const b={salonId:s.id,ownerUid:s.ownerUid,guestUid:me.user.uid,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,date:ymd(d),time:gb.time,createdAt:now()};
+    const b={salonId:s.id,ownerUid:s.ownerUid,guestUid:me.user.uid,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,...(v.priceMax?{priceMax:v.priceMax}:{}),date:ymd(d),time:gb.time,createdAt:now()};
     try{await col("bookings").add(b)}catch(err){console.error(err);return fail(errMsg(err))}
     gb.done=b;guestErr="";renderGuests();window.scrollTo(0,0)};
 }
