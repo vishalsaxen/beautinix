@@ -27,20 +27,16 @@ Sign-in uses Firebase Authentication (email and password) and data is stored in 
 `firestore.rules` holds the security rules. One-time setup in the [Firebase console](https://console.firebase.google.com/project/beautinix):
 
 1. **Authentication → Get started → Sign-in method → Email/Password → Enable.**
-2. **Authentication → Users → Add user** with the admin login below. Do this right after step 1: the admin is whoever holds this email in Firebase.
+2. **Authentication → Users → Add user** with the admin email below and a password of your choice.
 3. **Firestore Database → Rules**: paste `firestore.rules` and **Publish**.
 
 To test locally against the Firebase emulator: `firebase emulators:start --only auth,firestore`, serve the folder on `localhost` and open `http://localhost:<port>/?emulator`.
 
 ## Admin login
 
-| Login ID | Password |
-| --- | --- |
-| `admin@beautinix.de` | `Beautinix@2026` |
+The admin login ID is **vishalsaxen@gmail.com**, with the password set in Firebase (not stored in this repository). The first time the admin signs in, the app emails a verification link to that Gmail inbox; after opening it, the admin taps **I've verified, continue**. Only a verified account with this email gets admin access, so nobody else can take the admin role by registering the email. **Forgot password?** sends a reset link to the same inbox.
 
-This is the Firebase user you add in step 2 above. Change its password in the Firebase console (Authentication → Users) once real salons use the app. Password reset links go to the admin email, so `admin@beautinix.de` only receives them if that inbox exists.
-
-> This repository is public, so anyone can read this password. Change it before the app holds real data.
+To change the admin email, change `ADMIN_ID` in `index.html` and `isAdmin()` in `firestore.rules`, then publish the rules again.
 
 ## Logos
 
