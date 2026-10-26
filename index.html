@@ -180,6 +180,7 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .stars button[aria-pressed="false"]{color:var(--dim)}
 .stars:hover button{color:var(--warn)}
 .stars button:hover~button{color:var(--dim)}
+.day-head{margin:16px 0 4px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 #links-form .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
@@ -300,6 +301,7 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
   .top-actions .ghost-btn .lbl{display:none}
   .next-side{flex-direction:row;align-items:center;width:100%;justify-content:space-between}
 }
+@media (max-width:560px){.tabs{display:grid;grid-template-columns:1fr 1fr;overflow:visible}.tabs button{padding:9px 10px;justify-content:center}.ab-head{flex-wrap:wrap}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -627,7 +629,7 @@ function renderVerify(el){
 
 // ---------- Admin ----------
 let adminView="add";
-const ADMIN_TABS=[["add","Add Salon Details","plus"],["owners","Salon Owners","store"],["guests","Guests","user"]];
+const ADMIN_TABS=[["add","Add Salon Details","plus"],["owners","Salon Owners","store"],["guests","Guests","user"],["bookings","Bookings","cal"]];
 function renderAdmin(){
   const el=$("#sec-admin");
   if(!db){el.innerHTML=offlineView;return}
@@ -637,7 +639,7 @@ function renderAdmin(){
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
   el.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{adminView=b.dataset.v;renderAdmin()});
-  ({add:aAdd,owners:aOwners,guests:aGuests})[adminView]($("#pane"));
+  ({add:aAdd,owners:aOwners,guests:aGuests,bookings:aBookings})[adminView]($("#pane"));
 }
 function head(title,sub){return `<div class="pane-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`}
 
@@ -664,6 +666,26 @@ function aOwners(el){
       batch.update(col("listings").doc(id),{trusted:ok});
       await batch.commit();toast(ok?"KYC approved. The salon now shows Trusted Partner of Beautinix.":"Approval undone. The salon shows Pending KYC again.")}
     catch(err){console.error(err);b.disabled=false;toast(errMsg(err))}});
+}
+// Every salon's booked slots, grouped by day, filtered by salon and time range.
+let abSalon="",abWhen="upcoming";
+function aBookings(el){
+  const today=ymd(new Date()),salons=data.salons.filter(s=>s.status==="active").sort((a,b)=>a.name.localeCompare(b.name));
+  const inRange=b=>abWhen==="upcoming"?b.date>=today:abWhen==="today"?b.date===today:abWhen==="past"?b.date<today:true;
+  const list=data.bookings.filter(b=>(!abSalon||b.salonId===abSalon)&&inRange(b))
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)*(abWhen==="past"?-1:1));
+  const days=[...new Set(list.map(b=>b.date))];
+  el.innerHTML=head("Bookings","Booked slots at every salon. Guests pay at the salon.")+dbNote()+
+  `<div class="panel"><div class="panel-head ab-head"><h3>${list.length} booking${list.length===1?"":"s"}</h3>
+    <div class="tools"><select class="input" id="ab-salon" aria-label="Salon"><option value="">All salons</option>${salons.map(s=>`<option value="${s.id}" ${s.id===abSalon?"selected":""}>${esc(s.name)}</option>`).join("")}</select>
+    <select class="input" id="ab-when" aria-label="When">${[["upcoming","Upcoming"],["today","Today"],["past","Past"],["all","All dates"]].map(([k,l])=>`<option value="${k}" ${k===abWhen?"selected":""}>${l}</option>`).join("")}</select></div></div>
+  ${list.length?days.map(d=>`<h4 class="day-head">${d===today?"Today · ":""}${fmt(dayOf(d),{weekday:"long",day:"numeric",month:"long"})}</h4><div class="list">${list.filter(b=>b.date===d).map(b=>{const s=salonById(b.salonId);
+    return `<div class="list-item"><div><b class="mono">${esc(b.time)}</b> · <b>${esc(s?s.name:"Removed salon")}</b>
+      <div class="sub">${esc(b.service)} · ${priceText(b)}</div></div>
+      <div class="right"><b>${esc(b.guest)}</b><div class="sub">${waA(b.wa)}</div></div></div>`}).join("")}</div>`).join("")
+    :`<p class="small">${data.loaded?"No bookings for this choice.":"Loading…"}</p>`}</div>`;
+  $("#ab-salon").onchange=e=>{abSalon=e.target.value;aBookings(el)};
+  $("#ab-when").onchange=e=>{abWhen=e.target.value;aBookings(el)};
 }
 function aGuests(el){
   const list=data.guests.slice().sort((a,b)=>msOf(b.createdAt)-msOf(a.createdAt));
