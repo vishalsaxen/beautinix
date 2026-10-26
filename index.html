@@ -1166,12 +1166,20 @@ function salonCard(s,open){
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
   </article>`;
 }
+// Prefilled WhatsApp message from the guest to the salon about a booking.
+function bookingWa(s,b){
+  const when=`${fmt(dayOf(b.date),{weekday:"short",day:"numeric",month:"short"})} at ${b.time}`;
+  const text=`Hi ${s.name}, I've booked ${b.service} (${priceText(b)}) on ${when} through Beautinix.\nName: ${b.guest}\nWhatsApp: ${b.wa}\nPlease confirm. Thank you!`;
+  return `https://wa.me/${s.wa.replace(/[^0-9]/g,"")}?text=${encodeURIComponent(text)}`;
+}
 function bookingView(g){
   const s=salonById(gb.salon);
   if(!s)return `<p class="small">This salon isn't taking bookings any more.</p><div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`;
   if(gb.done){const b=gb.done;return `<div class="ok-box">You're booked at ${esc(s.name)} on ${fmt(dayOf(b.date),{weekday:"long",day:"numeric",month:"long"})} at ${b.time}.</div>
-    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${priceText(b)}, final price at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl></div>
-    <div class="nav"><span></span><button class="btn primary" id="gb-back">Back to salons</button></div>`}
+    <div class="panel summary"><dl><dt>Service</dt><dd>${esc(b.service)}</dd><dt>Price</dt><dd class="num">${priceText(b)}, final price at the salon</dd><dt>Salon WhatsApp</dt><dd class="mono">${esc(s.wa)}</dd></dl>
+      <p class="small">Send the salon a WhatsApp message so they know you're coming.</p>
+      <a class="btn primary block" id="gb-wa" href="${bookingWa(s,b)}" target="_blank" rel="noopener">${icon("chat")} Send on WhatsApp</a></div>
+    <div class="nav"><span></span><button class="btn" id="gb-back">Back to salons</button></div>`}
   const times=[];for(let h=9;h<19;h++)for(const m of["00","30"])times.push(`${String(h).padStart(2,"0")}:${m}`);
   const services=s.services||[],v=services.find(x=>x.id===gb.svc),n=new Date();
   return `<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)} · ${availPill(s)}</p></div><button class="btn" id="gb-back">Back to salons</button></div>
@@ -1253,7 +1261,9 @@ function renderGuests(){
     bc.disabled=true;
     const b={salonId:s.id,ownerUid:s.ownerUid,guestUid:me.user.uid,guest:g.name,wa:g.wa,email:g.email,service:v.name,price:v.price,...(v.priceMax?{priceMax:v.priceMax}:{}),date:ymd(d),time:gb.time,createdAt:now()};
     try{await col("bookings").add(b)}catch(err){console.error(err);return fail(errMsg(err))}
-    gb.done=b;guestErr="";renderGuests();window.scrollTo(0,0)};
+    gb.done=b;guestErr="";renderGuests();window.scrollTo(0,0);
+    // Opens WhatsApp with the message ready; the button above is there if the browser blocks it.
+    window.open(bookingWa(s,b),"_blank","noopener")};
 }
 
 showSection((location.hash||"#admin").slice(1));
