@@ -5,7 +5,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isAdmin() { return signedIn() && request.auth.token.email == "admin@beautinix.de"; }
+    // The admin is the verified Gmail account below.
+    function isAdmin() { return signedIn() && request.auth.token.email == "vishalsaxen@gmail.com" && request.auth.token.email_verified == true; }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
     function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }

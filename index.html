@@ -378,8 +378,8 @@ function errMsg(e){
 }
 
 // ---------- Who is signed in ----------
-// Roles: admin (the admin email), owner (a salon whose ownerUid is this user), guest (a guests/{uid} document).
-const ADMIN_ID="admin@beautinix.de";
+// Roles: admin (the admin email, once verified), unverified (the admin email before its inbox is confirmed), owner (a salon whose ownerUid is this user), guest (a guests/{uid} document).
+const ADMIN_ID="vishalsaxen@gmail.com";
 let me={ready:!db,user:null,role:null,salonId:null,guest:null};
 let data={salons:[],invites:{},bookings:[],guests:[],loaded:false};
 let listings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
@@ -413,7 +413,7 @@ async function resolve(u){
   if(u){
     rerender();
     try{
-      if((u.email||"").toLowerCase()===ADMIN_ID)me.role="admin";
+      if((u.email||"").toLowerCase()===ADMIN_ID)me.role=u.emailVerified?"admin":"unverified";
       else{
         const s=await col("salons").where("ownerUid","==",u.uid).limit(1).get();
         if(!s.empty){me.role="owner";me.salonId=s.docs[0].id}
@@ -459,6 +459,7 @@ function allowed(sec){
   if(r==="admin")return true;
   if(r==="owner")return sec==="salon";
   if(r==="guest")return sec==="guests";
+  if(r==="unverified")return sec==="admin";
   return sec!=="admin"||!me.user;
 }
 // stay: keep the salon sign-in page open while it checks whether the account belongs to a salon.
@@ -546,6 +547,7 @@ function renderAuth(el){
     if(id!==ADMIN_ID||!pw)return fail("That login ID and password don't match. Check them, or reset your password.");
     lock(lf);
     try{await withAuth(()=>auth.signInWithEmailAndPassword(id,pw))}catch(err){return fail(errMsg(err))}
+    if(me.role==="unverified"){sendVerify();return renderAdmin()}
     if(!isAdmin())return fail(dbErr||"That login ID and password don't match. Check them, or reset your password.");
     authErr="";showSection("admin");toast("Signed in")};
   const ff=$("#forgot-form");if(ff)ff.onsubmit=async e=>{e.preventDefault();
@@ -556,6 +558,26 @@ function renderAuth(el){
     resetFor=id;go("sent")};
 }
 
+
+// The admin proves they own the admin inbox once, so nobody else can register that email and become admin.
+let verifySent=false,verifyErr="";
+async function sendVerify(){
+  try{await auth.currentUser.sendEmailVerification();verifySent=true;verifyErr=""}
+  catch(e){console.error(e);verifyErr=/too-many-requests/.test(e.code)?"We sent a link a moment ago. Check your inbox, or try again in a few minutes.":errMsg(e)}
+}
+function renderVerify(el){
+  el.innerHTML=`<div class="auth">${logo()}<div class="auth-head"><h1>Verify your email</h1><p>${verifySent?`We sent a link to ${esc(maskEmail(ADMIN_ID))}.`:`Confirm that ${esc(maskEmail(ADMIN_ID))} is your inbox.`} Open the link, then come back and tap Continue. You only do this once.</p></div>
+    <div class="panel">${verifyErr?`<p class="err" role="alert">${esc(verifyErr)}</p>`:""}
+      <button class="btn primary block" type="button" id="vf-done">I've verified, continue</button>
+      <button class="link" type="button" id="vf-send">${verifySent?"Send the link again":"Send the verification link"}</button></div></div>`;
+  $("#vf-send").onclick=async e=>{e.target.disabled=true;await sendVerify();renderAdmin();if(!verifyErr)toast("Verification link sent")};
+  $("#vf-done").onclick=async e=>{e.target.disabled=true;
+    try{await auth.currentUser.reload();await auth.currentUser.getIdToken(true)}catch(err){verifyErr=errMsg(err);return renderAdmin()}
+    await resolve(auth.currentUser);
+    if(isAdmin()){verifyErr="";showSection("admin");toast("Email verified. You're signed in.")}
+    else{verifyErr="Your email isn't verified yet. Open the link in the email, then tap Continue.";renderAdmin()}};
+}
+
 // ---------- Admin ----------
 let adminView="add";
 const ADMIN_TABS=[["add","Add Salon Details","plus"],["owners","Salon Owners","store"],["guests","Guests","user"]];
@@ -563,6 +585,7 @@ function renderAdmin(){
   const el=$("#sec-admin");
   if(!db){el.innerHTML=offlineView;return}
   if(!me.ready){el.innerHTML=loadingView;return}
+  if(me.role==="unverified"){renderVerify(el);return}
   if(!isAdmin()){renderAuth(el);return}
   el.innerHTML=`<nav class="tabs" aria-label="Admin">${ADMIN_TABS.map(([k,l,i])=>`<button data-v="${k}" ${k===adminView?'aria-current="page"':""}>${icon(i)}${l}</button>`).join("")}</nav>
    <div class="pane" id="pane"></div>`;
