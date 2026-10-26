@@ -207,6 +207,13 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
 .alert-banner>div{display:flex;gap:10px;align-items:flex-start}.alert-banner .ico{color:var(--accent);width:22px;height:22px;flex:none;margin-top:2px}
 .alert-banner p{margin:2px 0 0;color:var(--muted);font-size:13px}
 @keyframes bx-pop{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.salon-thumb{display:block;padding:0;border:0;background:var(--surface-2);border-radius:var(--r-sm);overflow:hidden;aspect-ratio:16/9;width:100%;cursor:zoom-in}
+.salon-card .salon-thumb{margin:-6px -6px 2px;width:calc(100% + 12px)}
+.salon-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.salon-thumb.big{max-width:480px}
+.photo-panel .row label.btn{cursor:pointer}
+.lightbox{position:fixed;inset:0;z-index:70;background:rgb(5 8 18 / .88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+.lightbox img{max-width:100%;max-height:calc(100vh - 90px);border-radius:var(--r);object-fit:contain;box-shadow:0 20px 50px rgb(0 0 0 / .5)}
 .note{background:var(--gold-soft);border:1px solid rgb(245 165 36 / .35);color:var(--gold);border-radius:var(--r-sm);padding:10px 12px;font-size:13px}
 .note b{font-family:var(--mono);letter-spacing:.2em}
 
@@ -434,7 +441,7 @@ async function resolve(u){
 // Sign-in, sign-up and claim flows run here so the role is known before the page moves on.
 async function withAuth(fn){busyAuth=true;try{return await fn()}finally{busyAuth=false;await resolve(auth.currentUser)}}
 if(db){
-  col("listings").where("active","==",true).onSnapshot(s=>{listings=docs(s);rerender("guests")},e=>{console.error(e);dbErr=errMsg(e);rerender("guests")});
+  col("listings").where("active","==",true).onSnapshot(s=>{listings=docs(s);rerender()},e=>{console.error(e);dbErr=errMsg(e);rerender("guests")});
   auth.onAuthStateChanged(u=>{if(!busyAuth&&(u?u.uid:null)!==resolvedUid)resolve(u)});
 }
 
@@ -679,7 +686,7 @@ function aAdd(el){
     // Removes the salon, its public listing, its invite code and its bookings.
     try{
       const batch=db.batch();
-      batch.delete(col("salons").doc(id));batch.delete(col("listings").doc(id));
+      batch.delete(col("salons").doc(id));batch.delete(col("listings").doc(id));batch.delete(col("photos").doc(id));
       (await col("invites").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
       (await col("bookings").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
       await batch.commit();
@@ -884,8 +891,9 @@ function renderSalon(){
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
     <span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>
   </div><p class="small">${esc(terms)}</p></div>`}
+  ${photoPanel(s,!!mine)}
   ${ownerPanels(s,!!mine)}`;
-  bindOwner(el,s);
+  bindOwner(el,s);bindPhoto(el,s);
   if(mine)bindEdit(el,s);
   if(!mine){$("#salon-pick").value=s.id;
     $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
@@ -1046,6 +1054,65 @@ setInterval(()=>{
     if(b.date===today&&left>=0&&left<=15&&!reminded.has(b.id)){reminded.add(b.id);bookingAlert(b,"due",left)}});
 },30000);
 
+
+// ---------- Salon photo ----------
+// One large photo per salon. It's resized in the browser and stored in Firestore: the full image in photos/{id}
+// (under 1 MB) and a small thumbnail on the public listing, so guests see it on the salon card.
+const thumbOf=id=>{const l=listings.find(x=>x.id===id);return l&&l.thumb||""};
+let photoBusy=false,photoErr="";
+function loadImage(file){return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);bad(new Error("bad image"))};i.src=u})}
+function drawJpeg(img,w,h,sx,sy,sw,sh,maxBytes){
+  const c=document.createElement("canvas");c.width=w;c.height=h;
+  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,sx,sy,sw,sh,0,0,w,h);
+  for(let q=0.85;q>=0.4;q-=0.1){const d=c.toDataURL("image/jpeg",q);if(d.length<=maxBytes)return d}
+  return null;
+}
+async function makePhoto(file){
+  const img=await loadImage(file),W=img.naturalWidth,H=img.naturalHeight;
+  // Full image: longest side at most 1600 px.
+  let k=Math.min(1,1600/Math.max(W,H)),full=null;
+  while(!full&&k>0.2){full=drawJpeg(img,Math.round(W*k),Math.round(H*k),0,0,W,H,850000);k*=0.8}
+  // Thumbnail: centre crop to 16:9 at 640×360.
+  const r=16/9;let sw=W,sh=Math.round(W/r);if(sh>H){sh=H;sw=Math.round(H*r)}
+  const thumb=drawJpeg(img,640,360,Math.round((W-sw)/2),Math.round((H-sh)/2),sw,sh,90000);
+  if(!full||!thumb)throw new Error("too big");
+  return {full,thumb};
+}
+function photoPanel(s,editable){
+  const th=thumbOf(s.id);
+  return `<div class="panel photo-panel"><div class="panel-head"><h3>Salon photo</h3>${th?`<span>Guests see this on your card</span>`:""}</div>
+    ${th?`<button class="salon-thumb big" data-photo="${s.id}" aria-label="See full photo"><img src="${th}" alt="${esc(s.name)}"></button>`
+      :`<p class="small">${editable?"Add one big photo of your salon. Guests see it as a thumbnail on your salon card.":"No photo yet."}</p>`}
+    ${photoErr&&editable?`<p class="err" role="alert">${esc(photoErr)}</p>`:""}
+    ${editable?`<div class="row"><label class="btn ${th?"":"primary"}" ${photoBusy?'aria-disabled="true"':""}>${photoBusy?"Uploading…":th?"Change photo":"Upload photo"}<input type="file" id="ph-file" accept="image/*" hidden ${photoBusy?"disabled":""}></label>${th&&!photoBusy?`<button class="btn" type="button" id="ph-del">Remove</button>`:""}</div>`:""}
+  </div>`;
+}
+function bindPhoto(el,s){
+  el.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>openPhoto(b.dataset.photo));
+  const f=$("#ph-file");if(f)f.onchange=async()=>{const file=f.files[0];if(!file)return;
+    if(!/^image\//.test(file.type)){photoErr="Choose a photo (JPG, PNG or similar).";return renderSalon()}
+    photoBusy=true;photoErr="";renderSalon();
+    try{
+      const p=await makePhoto(file),batch=db.batch();
+      batch.set(col("photos").doc(s.id),{image:p.full,updatedAt:now()});
+      batch.update(col("listings").doc(s.id),{thumb:p.thumb});
+      await batch.commit();toast("Photo saved. Guests can see it now.");
+    }catch(e){console.error(e);photoErr=e.code?errMsg(e):"We couldn't use that photo. Try a different one."}
+    photoBusy=false;renderSalon()};
+  const d=$("#ph-del");if(d)d.onclick=async()=>{d.disabled=true;
+    try{const batch=db.batch();batch.delete(col("photos").doc(s.id));batch.update(col("listings").doc(s.id),{thumb:firebase.firestore.FieldValue.delete()});await batch.commit();toast("Photo removed")}
+    catch(e){console.error(e);toast(errMsg(e))}};
+}
+async function openPhoto(id){
+  let el=$("#lightbox");
+  if(!el){el=document.createElement("div");el.id="lightbox";el.className="lightbox";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el)}
+  el.innerHTML=`<img src="${thumbOf(id)}" alt=""><button class="btn sm" type="button">Close</button>`;el.hidden=false;
+  const close=()=>{el.hidden=true;el.innerHTML=""};
+  el.onclick=e=>{if(e.target===el||e.target.tagName==="BUTTON")close()};
+  document.addEventListener("keydown",function k(e){if(e.key==="Escape"){close();document.removeEventListener("keydown",k)}});
+  try{const d=await col("photos").doc(id).get();const im=el.querySelector("img");if(d.exists&&im)im.src=d.data().image}catch(e){console.error(e)}
+}
+
 // ---------- die Gäste ----------
 // Everyone sees each salon's name and availability. Location, WhatsApp, services and prices stay masked until the guest signs in.
 let guestView="list",guestErr="",guestDraft={},guestResetFor="";
@@ -1090,7 +1157,8 @@ function guestAuthView(){
 }
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
-  return `<article class="card salon-card"><div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>
+  const th=thumbOf(s.id);
+  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
@@ -1175,6 +1243,7 @@ function renderGuests(){
     lock(pf);
     try{await withAuth(()=>col("guests").doc(me.user.uid).set({name,wa:waFmt(wa),email:(me.user.email||"").toLowerCase(),createdAt:now()}))}catch(err){console.error(err);return fail(errMsg(err))}
     guestDraft={};guestView="list";guestErr="";showSection("guests");toast("Saved. Salon details are now visible.")};
+  el.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>openPhoto(b.dataset.photo));
   el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});guestErr="";renderGuests();window.scrollTo(0,0)});
   $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;guestErr="";renderGuests()});
   el.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>{gb.svc=b.dataset.svc;renderGuests()});

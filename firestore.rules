@@ -9,6 +9,7 @@ service cloud.firestore {
     function isAdmin() { return signedIn() && request.auth.token.email == "vishalsaxen@gmail.com" && request.auth.token.email_verified == true; }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
+    function validImage(d, max) { return d is string && d.size() <= max && d.matches("data:image/jpeg;base64,.*"); }
     function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }
     function validTerms(t) { return t.version is string && t.fee == 200 && t.acceptedAt == request.time; }
     function validDetails(d) {
@@ -52,9 +53,20 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (signedIn() && getAfter(path("salons", id)).data.ownerUid == request.auth.uid
-            && changed().hasOnly(["availability", "active", "name"])
+            && changed().hasOnly(["availability", "active", "name", "thumb"])
             && request.resource.data.name == getAfter(path("salons", id)).data.name
-            && validAvailability(request.resource.data.availability));
+            && validAvailability(request.resource.data.availability)
+            && (!("thumb" in request.resource.data) || validImage(request.resource.data.thumb, 100000)));
+    }
+
+    // The salon's one large photo; its thumbnail sits on the listing.
+    match /photos/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        || (signedIn() && get(path("salons", id)).data.ownerUid == request.auth.uid
+            && request.resource.data.keys().hasOnly(["image", "updatedAt"])
+            && validImage(request.resource.data.image, 900000));
+      allow delete: if isAdmin() || (signedIn() && get(path("salons", id)).data.ownerUid == request.auth.uid);
     }
 
     // Sign-up codes. Anyone holding a code can look it up; only the admin can list them.
