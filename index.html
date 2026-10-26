@@ -181,6 +181,10 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .stars:hover button{color:var(--warn)}
 .stars button:hover~button{color:var(--dim)}
 .day-head{margin:16px 0 4px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.place-search{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.place-search .input-ico{position:relative;flex:1 1 240px;display:flex}
+.place-search .input-ico .ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--accent);pointer-events:none}
+.place-search .input{padding-left:36px;width:100%}
 #links-form .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
@@ -1180,10 +1184,39 @@ function geoChip(){
   $("#geo-pin-txt").textContent=geoState==="ok"?(guestPin?`PIN ${guestPin}`:"Near you"):geoState==="asking"?"Locating…":"Set location";
 }
 $("#geo-pin").onclick=()=>{askGuestPos();renderGuests()};
-const distOf=s=>{const g=geoOf(s.id);return guestPos&&g?km(guestPos,g):null};
-function nearFirst(list){if(!guestPos)return list;
+// Guests can also look up another place by state, city or PIN code. The place is found with OpenStreetMap,
+// and salons are matched by their rough position, so signed-out guests still don't see addresses.
+let place=null,placeQ="",placeBusy=false,placeErr="";
+// A whole state has no useful centre, so distances then stay measured from the guest.
+const origin=()=>place&&!place.big?place:guestPos;
+const distOf=s=>{const g=geoOf(s.id),o=origin();return o&&g?km(o,g):null};
+function distText(d){if(!place||place.big)return kmText(d);return d<1?`In ${place.label}`:`${d<10?d.toFixed(1):Math.round(d)} km from ${place.label}`}
+function inPlace(s){
+  const g=geoOf(s.id);
+  if(g){const [S,N,W,E]=place.bbox,pad=.1;
+    if(g.lat>=S-pad&&g.lat<=N+pad&&g.lng>=W-pad&&g.lng<=E+pad)return true;
+    if(km(place,g)<=place.radius)return true}
+  // Signed-in guests can see addresses, so a typed city, state or PIN also matches directly.
+  const q=placeQ.toLowerCase();return !!(s.city&&[s.city,s.state,s.pin].some(v=>String(v).toLowerCase()===q));
+}
+async function findPlace(q){
+  const pin=/^[1-9][0-9]{5}$/.test(q);
+  const url=pin?`https://nominatim.openstreetmap.org/search?format=json&limit=1&country=India&postalcode=${q}`
+    :`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(q)}`;
+  const [hit]=await (await fetch(url)).json();if(!hit)return null;
+  const big=/^(state|region|province)$/.test(hit.addresstype||hit.type||"");
+  return {lat:+hit.lat,lng:+hit.lon,bbox:hit.boundingbox.map(Number),radius:pin?15:big?0:25,big,
+    label:pin?`PIN ${q}`:q.replace(/\s+/g," ").replace(/\b\w/g,c=>c.toUpperCase())};
+}
+function nearFirst(list){if(!origin())return list;
   return list.map(s=>[s,distOf(s)]).sort((a,b)=>(a[1]??1e9)-(b[1]??1e9)).map(x=>x[0])}
+function placeForm(){
+  return `<form class="place-search" id="place-form" role="search"><span class="input-ico">${icon("pin")}<input class="input" id="place-q" value="${esc(placeQ)}" placeholder="Search by state, city or PIN code" aria-label="State, city or PIN code" autocomplete="off"></span>
+    <button class="btn primary" type="submit" ${placeBusy?"disabled":""}>${placeBusy?"Searching…":"Search"}</button>${place?`<button class="btn" type="button" id="place-clear">Near me</button>`:""}</form>
+    ${placeErr?`<p class="err" role="alert">${esc(placeErr)}</p>`:""}`;
+}
 function nearNote(){
+  if(place)return "";
   if(geoState==="ok")return `<p class="near-note">${icon("pin")}Nearest salons first</p>`;
   if(geoState==="asking")return `<p class="near-note">${icon("pin")}Finding salons near you…</p>`;
   if(geoState==="unsupported")return "";
@@ -1330,7 +1363,7 @@ function guestAuthView(){
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   const th=thumbOf(s.id);
-  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${ratingBadge(s.id)}${distOf(s)!=null?`<p class="dist">${icon("pin")}${kmText(distOf(s))}</p>`:""}${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
+  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${ratingBadge(s.id)}${distOf(s)!=null?`<p class="dist">${icon("pin")}${distText(distOf(s))}</p>`:""}${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd>${linkRows(s)}</dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${g?rateRow(s):""}
@@ -1380,13 +1413,16 @@ function renderGuests(){
   if(guestView!=="list"&&!g)body=`<div class="auth">${logo()}${guestAuthView()}</div>`;
   else if(g&&gb.salon)body=`<div class="guest">${bookingView(g)}</div>`;
   else{if(geoState==="idle")askGuestPos();
-    const list=nearFirst(listedSalons()),open=!!me.user;
+    const all=nearFirst(listedSalons()),open=!!me.user;
+    const hits=place?all.filter(inPlace):all,list=place&&!hits.length?all:hits;
+    const placeNote=place?`<p class="near-note">${icon("pin")}${hits.length?`${hits.length} salon${hits.length===1?"":"s"} in ${esc(place.label)}`:`No salons in ${esc(place.label)} yet. Showing the nearest ones.`}</p>`:"";
     body=`<div class="guest">
     <div class="next"><div class="next-tile">${icon("store").replace('class="ico"','class="ico" style="width:30px;height:30px"')}</div><div class="next-body"><span class="eyebrow">${g?`Hi ${esc(g.name.split(" ")[0])}`:open?"Signed in":"Find a salon"}</span><h2>Salons on Beautinix</h2><p>${g?"Pick a salon to see its services and book.":open?"Guests can book from their own account.":"Create a free account to see services, prices and contact details."}</p></div>
       ${open?"":`<div class="next-side"><button class="btn primary" data-gv="signup">Create account</button><button class="link" data-gv="login">Sign in</button></div>`}</div>
     ${db?"":offlineView}${dbNote()}
     ${g?myBookings():""}
-    ${list.length?`${nearNote()}<div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>`:`<div class="panel"><p class="small">No salons are listed yet. Check back soon.</p></div>`}
+    ${placeForm()}
+    ${list.length?`${placeNote}${nearNote()}<div class="cards">${list.map(s=>salonCard(s,open)).join("")}</div>`:`<div class="panel"><p class="small">No salons are listed yet. Check back soon.</p></div>`}
     </div>`}
   el.innerHTML=body;
   el.querySelectorAll("[data-gv]").forEach(b=>b.onclick=()=>{guestView=b.dataset.gv;guestErr="";renderGuests();window.scrollTo(0,0)});
@@ -1429,6 +1465,16 @@ function renderGuests(){
   el.querySelectorAll("[data-rate]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rate,stars=+b.dataset.stars,uid=me.user.uid;
     try{await col("ratings").doc(`${id}_${uid}`).set({salonId:id,guestUid:uid,stars,updatedAt:now()});toast(`Thanks! You rated ${salonById(id)?.name||"this salon"} ${stars} out of 5.`)}
     catch(err){console.error(err);toast(errMsg(err))}});
+  const plf=$("#place-form");if(plf){
+    $("#place-q").addEventListener("input",e=>{placeQ=e.target.value});
+    plf.onsubmit=async e=>{e.preventDefault();const q=$("#place-q").value.trim().replace(/\s+/g," ");placeQ=q;
+      if(!q){place=null;placeErr="";return renderGuests()}
+      placeBusy=true;placeErr="";renderGuests();
+      try{const p=await findPlace(q);if(p)place=p;else placeErr=`Couldn't find "${q}". Try a city, state or 6-digit PIN code.`}
+      catch(err){console.error(err);placeErr="Search isn't working right now. Try again in a moment."}
+      placeBusy=false;renderGuests()};
+    $("#place-clear")&&($("#place-clear").onclick=()=>{place=null;placeQ="";placeErr="";renderGuests()});
+  }
   $("#near-retry")&&($("#near-retry").onclick=()=>{askGuestPos();renderGuests()});
   el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});guestErr="";renderGuests();window.scrollTo(0,0)});
   $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;guestErr="";renderGuests()});
