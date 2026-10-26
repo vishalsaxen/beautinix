@@ -169,6 +169,17 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .geo-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font-weight:700;font-size:13px;padding:8px 12px;border-radius:999px}
 .geo-chip .ico{width:15px;height:15px;color:var(--accent)}
 .geo-chip:hover{border-color:var(--accent-line)}
+.rating{display:inline-flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap}
+.rating b{color:var(--amber,#F5A524)}
+.rating small{color:var(--muted)}
+.rating.none{color:var(--dim);font-size:12px}
+.salon-card>.rating{margin-top:-6px}
+.rate-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);border-top:1px solid var(--line-soft);padding-top:10px}
+.stars{display:inline-flex;gap:2px}
+.stars button{background:none;border:0;padding:2px 3px;font-size:22px;line-height:1;color:var(--warn);cursor:pointer}
+.stars button[aria-pressed="false"]{color:var(--dim)}
+.stars:hover button{color:var(--warn)}
+.stars button:hover~button{color:var(--dim)}
 #links-form .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
@@ -416,7 +427,7 @@ function errMsg(e){
 const ADMIN_ID="vishalsaxen@gmail.com";
 let me={ready:!db,user:null,role:null,salonId:null,guest:null};
 let data={salons:[],invites:{},bookings:[],guests:[],loaded:false};
-let listings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
+let listings=[],ratings=[],dbErr="",unsubs=[],gen=0,resolvedUid,busyAuth=false;
 const isAdmin=()=>me.role==="admin";
 const salonUser=()=>me.role==="owner"?data.salons.find(s=>s.id===me.salonId)||null:null;
 const guestUser=()=>me.role==="guest"?me.guest:null;
@@ -463,6 +474,7 @@ async function resolve(u){
 async function withAuth(fn){busyAuth=true;try{return await fn()}finally{busyAuth=false;await resolve(auth.currentUser)}}
 if(db){
   col("listings").where("active","==",true).onSnapshot(s=>{listings=docs(s);rerender()},e=>{console.error(e);dbErr=errMsg(e);rerender("guests")});
+  col("ratings").onSnapshot(s=>{ratings=docs(s);rerender()},e=>console.error(e));
   auth.onAuthStateChanged(u=>{if(!busyAuth&&(u?u.uid:null)!==resolvedUid)resolve(u)});
 }
 
@@ -641,7 +653,7 @@ function aOwners(el){
   ${owners.length?`<div class="list">${owners.map(s=>{const n=data.bookings.filter(b=>b.salonId===s.id).length;return `<div class="list-item"><div><b>${esc(s.name)}</b>
       <div class="sub">${esc(s.person)} · ${waA(s.wa)} · ${esc(s.email)}</div>
       <div class="sub">${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)} · ${(s.services||[]).length} services · ${n} booking${n===1?"":"s"}</div></div>
-    <div class="row-actions">${availPill(s)}${s.terms?`<span class="pill s-confirmed">T&amp;C ${when(s.terms.acceptedAt)}</span>`:`<span class="pill s-pending">T&amp;C pending</span>`}${kycPill(s)}
+    <div class="row-actions">${ratingBadge(s.id)}${availPill(s)}${s.terms?`<span class="pill s-confirmed">T&amp;C ${when(s.terms.acceptedAt)}</span>`:`<span class="pill s-pending">T&amp;C pending</span>`}${kycPill(s)}
       ${isTrusted(s)?`<button class="btn sm" data-kyc="${s.id}" data-to="pending">Undo approval</button>`:`<button class="btn sm primary" data-kyc="${s.id}" data-to="approved">Approve KYC</button>`}</div></div>`}).join("")}</div>`
     :`<p class="small">${data.loaded?"No salon owner has created an account yet.":"Loading…"}</p>`}
   ${waiting>0?`<p class="small">${waiting} invited salon${waiting===1?" hasn't":"s haven't"} created an account yet. See Add Salon Details.</p>`:""}</div>`;
@@ -717,6 +729,7 @@ function aAdd(el){
     try{
       const batch=db.batch();
       batch.delete(col("salons").doc(id));batch.delete(col("listings").doc(id));batch.delete(col("photos").doc(id));
+      ratings.filter(r=>r.salonId===id).forEach(r=>batch.delete(col("ratings").doc(r.id)));
       (await col("invites").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
       (await col("bookings").where("salonId","==",id).get()).forEach(d=>batch.delete(d.ref));
       await batch.commit();
@@ -912,7 +925,7 @@ function renderSalon(){
   if(!mine&&!list.length){el.innerHTML=head("Salon de Beauté",data.loaded?"No salons yet. Add one in Admin and it appears here.":"Loading…");return}
   const s=mine||list.find(x=>x.id===salonSel)||list[0];
   const terms=s.terms?`T&C accepted ${s.terms.acceptedAt&&s.terms.acceptedAt.toDate?fmt(s.terms.acceptedAt.toDate(),{day:"numeric",month:"short",year:"numeric"}):""} · ₹${s.terms.fee}/month`:"T&C not accepted yet";
-  el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?` ${kycPill(s)}`:` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
+  el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?` ${kycPill(s)} ${ratingBadge(s.id)}`:` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
     ${mine?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div>`}</div>
   ${dbNote()}
   ${mine&&!isTrusted(s)?`<div class="panel kyc-note"><b>Pending KYC</b><p class="small">Beautinix is checking your salon details. Once approved, your salon shows the Trusted Partner of Beautinix badge to guests.</p></div>`:""}
@@ -1096,6 +1109,15 @@ setInterval(()=>{
 // One large photo per salon. It's resized in the browser and stored in Firestore: the full image in photos/{id}
 // (under 1 MB) and a small thumbnail on the public listing, so guests see it on the salon card.
 const thumbOf=id=>{const l=listings.find(x=>x.id===id);return l&&l.thumb||""};
+
+// ---------- Ratings: each guest gives a salon 1 (lowest) to 5 (highest) stars, and can change it ----------
+function ratingOf(id){const list=ratings.filter(r=>r.salonId===id);
+  return {n:list.length,avg:list.length?list.reduce((t,r)=>t+r.stars,0)/list.length:0}}
+const starsText=n=>"★".repeat(n)+"☆".repeat(5-n);
+function ratingBadge(id){const {n,avg}=ratingOf(id);
+  return n?`<span class="rating" aria-label="Rated ${avg.toFixed(1)} out of 5 by ${n} guest${n===1?"":"s"}"><b>★ ${avg.toFixed(1)}</b><small>(${n})</small></span>`:`<span class="rating none">No ratings yet</span>`}
+function rateRow(s){const mine=ratings.find(r=>r.salonId===s.id&&r.guestUid===me.user.uid);
+  return `<div class="rate-row"><span>${mine?"Your rating":"Rate this salon"}</span><span class="stars" role="group" aria-label="Rate ${esc(s.name)}">${[1,2,3,4,5].map(n=>`<button type="button" data-rate="${s.id}" data-stars="${n}" aria-label="${n} star${n===1?"":"s"}" aria-pressed="${!!mine&&mine.stars>=n}">${mine&&mine.stars>=n?"★":"☆"}</button>`).join("")}</span></div>`}
 
 // ---------- Location: salons keep a rough position (about 1 km) on their public listing ----------
 const geoOf=id=>{const l=listings.find(x=>x.id===id);return l&&l.geo||null};
@@ -1286,9 +1308,10 @@ function guestAuthView(){
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   const th=thumbOf(s.id);
-  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${distOf(s)!=null?`<p class="dist">${icon("pin")}${kmText(distOf(s))}</p>`:""}${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
+  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${ratingBadge(s.id)}${distOf(s)!=null?`<p class="dist">${icon("pin")}${kmText(distOf(s))}</p>`:""}${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd>${linkRows(s)}</dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
+      ${g?rateRow(s):""}
       ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
     :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Map</dt><dd>${MASK}</dd><dt>Instagram</dt><dd>@${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
@@ -1381,6 +1404,9 @@ function renderGuests(){
     try{await withAuth(()=>col("guests").doc(me.user.uid).set({name,wa:waFmt(wa),email:(me.user.email||"").toLowerCase(),createdAt:now()}))}catch(err){console.error(err);return fail(errMsg(err))}
     guestDraft={};guestView="list";guestErr="";showSection("guests");toast("Saved. Salon details are now visible.")};
   el.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>openPhoto(b.dataset.photo));
+  el.querySelectorAll("[data-rate]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rate,stars=+b.dataset.stars,uid=me.user.uid;
+    try{await col("ratings").doc(`${id}_${uid}`).set({salonId:id,guestUid:uid,stars,updatedAt:now()});toast(`Thanks! You rated ${salonById(id)?.name||"this salon"} ${stars} out of 5.`)}
+    catch(err){console.error(err);toast(errMsg(err))}});
   $("#near-retry")&&($("#near-retry").onclick=()=>{askGuestPos();renderGuests()});
   el.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>{Object.assign(gb,{salon:b.dataset.book,svc:null,day:0,time:null,done:null});guestErr="";renderGuests();window.scrollTo(0,0)});
   $("#gb-back")&&($("#gb-back").onclick=()=>{gb.salon=null;gb.done=null;guestErr="";renderGuests()});
