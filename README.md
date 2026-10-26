@@ -10,7 +10,7 @@ Beauty clinic appointment app. This repository holds the first HTML prototype an
 
 WhatsApp numbers always start with a fixed +91 followed by exactly 10 digits. **Forgot password?** emails a reset link (Firebase sends it). Tabs are locked by role: the admin can open all three, a signed-in salon owner only Salon de Beauté, and a signed-in guest only die Gäste.
 
-Live app: https://vishalsaxen.github.io/beautinix/ (GitHub Pages, branch `main`, `/ (root)`). Prices are in rupees (₹). "Pallavi's Paradise" is a built-in sample listing and can't be booked.
+Live app: https://vishalsaxen.github.io/beautinix/ (GitHub Pages, branch `main`, `/ (root)`). Prices are in rupees (₹). A built-in sample listing ("Pallavi's Paradise") fills die Gäste until the first real salon is listed; it can't be booked.
 
 ## Firebase
 

@@ -1056,7 +1056,8 @@ const gb={salon:null,svc:null,day:0,time:null,done:null};
 function days(){const out=[];const d=new Date();d.setHours(0,0,0,0);for(let i=0;i<10;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out}
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const MASK="*****";
-const listedSalons=()=>me.user?[SAMPLE,...data.salons.filter(s=>s.status==="active")]:[SAMPLE,...listings];
+// The sample only fills the page until the first real salon is listed.
+const listedSalons=()=>{const real=me.user?data.salons.filter(s=>s.status==="active"):listings;return real.length?real:[SAMPLE]};
 
 function guestAuthView(){
   const err=guestErr?`<p class="err" role="alert">${esc(guestErr)}</p>`:"";
