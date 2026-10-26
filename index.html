@@ -152,6 +152,11 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .s-confirmed{background:var(--ok-soft);color:var(--ok)}
 .s-pending{background:var(--warn-soft);color:var(--warn)}
+.pill.trusted{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+.pill.trusted .ico{width:14px;height:14px}
+.pill.trusted::before{display:none}
+.kyc-note{border-color:rgb(245 165 36 / .4)}
+.kyc-note b{color:var(--warn)}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
 
@@ -619,9 +624,17 @@ function aOwners(el){
   ${owners.length?`<div class="list">${owners.map(s=>{const n=data.bookings.filter(b=>b.salonId===s.id).length;return `<div class="list-item"><div><b>${esc(s.name)}</b>
       <div class="sub">${esc(s.person)} · ${waA(s.wa)} · ${esc(s.email)}</div>
       <div class="sub">${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)} · ${(s.services||[]).length} services · ${n} booking${n===1?"":"s"}</div></div>
-    <div class="row-actions">${availPill(s)}${s.terms?`<span class="pill s-confirmed">T&amp;C ${when(s.terms.acceptedAt)}</span>`:`<span class="pill s-pending">T&amp;C pending</span>`}</div></div>`}).join("")}</div>`
+    <div class="row-actions">${availPill(s)}${s.terms?`<span class="pill s-confirmed">T&amp;C ${when(s.terms.acceptedAt)}</span>`:`<span class="pill s-pending">T&amp;C pending</span>`}${kycPill(s)}
+      ${isTrusted(s)?`<button class="btn sm" data-kyc="${s.id}" data-to="pending">Undo approval</button>`:`<button class="btn sm primary" data-kyc="${s.id}" data-to="approved">Approve KYC</button>`}</div></div>`}).join("")}</div>`
     :`<p class="small">${data.loaded?"No salon owner has created an account yet.":"Loading…"}</p>`}
   ${waiting>0?`<p class="small">${waiting} invited salon${waiting===1?" hasn't":"s haven't"} created an account yet. See Add Salon Details.</p>`:""}</div>`;
+  // Approving KYC marks the salon and its public listing as trusted.
+  el.querySelectorAll("[data-kyc]").forEach(b=>b.onclick=async()=>{const id=b.dataset.kyc,ok=b.dataset.to==="approved";b.disabled=true;
+    try{const batch=db.batch();
+      batch.update(col("salons").doc(id),{kyc:ok?"approved":"pending",kycAt:now()});
+      batch.update(col("listings").doc(id),{trusted:ok});
+      await batch.commit();toast(ok?"KYC approved. The salon now shows Trusted Partner of Beautinix.":"Approval undone. The salon shows Pending KYC again.")}
+    catch(err){console.error(err);b.disabled=false;toast(errMsg(err))}});
 }
 function aGuests(el){
   const list=data.guests.slice().sort((a,b)=>msOf(b.createdAt)-msOf(a.createdAt));
@@ -882,9 +895,10 @@ function renderSalon(){
   if(!mine&&!list.length){el.innerHTML=head("Salon de Beauté",data.loaded?"No salons yet. Add one in Admin and it appears here.":"Loading…");return}
   const s=mine||list.find(x=>x.id===salonSel)||list[0];
   const terms=s.terms?`T&C accepted ${s.terms.acceptedAt&&s.terms.acceptedAt.toDate?fmt(s.terms.acceptedAt.toDate(),{day:"numeric",month:"short",year:"numeric"}):""} · ₹${s.terms.fee}/month`:"T&C not accepted yet";
-  el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?"":` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
+  el.innerHTML=`<div class="pane-head"><div><h1>${esc(s.name)}</h1><p>${esc(s.city)}, ${esc(s.state)} · ${availPill(s)}${s.status==="active"?` ${kycPill(s)}`:` · <span class="pill s-pending">Owner hasn't created an account yet</span>`}</p></div>
     ${mine?"":`<div class="tools"><select class="input" id="salon-pick" aria-label="Salon">${list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div>`}</div>
   ${dbNote()}
+  ${mine&&!isTrusted(s)?`<div class="panel kyc-note"><b>Pending KYC</b><p class="small">Beautinix is checking your salon details. Once approved, your salon shows the Trusted Partner of Beautinix badge to guests.</p></div>`:""}
   ${mine&&editing?editPanel(s):`<div class="panel"><div class="panel-head"><h3>Salon details</h3>${mine?`<button class="btn sm" id="ed-open">Edit details</button>`:""}</div><div class="contact">
     <span>${icon("user")}${esc(s.person)}</span>
     <a href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener" class="mono">${icon("chat")}${esc(s.wa)}</a>
@@ -948,6 +962,10 @@ function bindEdit(el,s){
 
 // ---------- Salon services & availability (owner) ----------
 const AVAIL={available:["Available","s-confirmed"],busy:["Busy","s-pending"],unavailable:["Not available","s-cancelled"]};
+// KYC: a salon is pending until the admin approves it, then it shows the trusted badge.
+const isTrusted=s=>s.kyc==="approved"||s.trusted===true;
+const trustBadge=()=>`<span class="pill trusted">${icon("shield")}Trusted Partner of Beautinix</span>`;
+const kycPill=s=>isTrusted(s)?trustBadge():`<span class="pill s-pending">Pending KYC</span>`;
 const availPill=s=>{const[a,c]=AVAIL[s.availability]||AVAIL.available;return `<span class="pill ${c}">${a}</span>`};
 const QUICK=["Facial","Bleach","Clean-up","Eyebrow threading","Upper lip threading","Waxing (full arms)","Haircut","Hair spa","Hair colour","Manicure","Pedicure","Party makeup","Bridal makeup"];
 const fmt=(d,o)=>d.toLocaleDateString("en-GB",o);
@@ -1158,7 +1176,7 @@ function guestAuthView(){
 function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   const th=thumbOf(s.id);
-  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>
+  return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
     ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
