@@ -10,6 +10,12 @@ service cloud.firestore {
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
     function validImage(d, max) { return d is string && d.size() <= max && d.matches("data:image/jpeg;base64,.*"); }
+    // Optional Google Maps and Instagram links; an empty string removes one.
+    function validLinks(d) {
+      return (!("maps" in d) || d.maps == "" || (d.maps is string && d.maps.size() <= 300
+          && d.maps.matches("https://(maps[.]app[.]goo[.]gl|goo[.]gl/maps|(www[.])?google[.](com|co[.]in)/maps|maps[.]google[.](com|co[.]in))/[^ <>\"]*")))
+        && (!("insta" in d) || d.insta == "" || (d.insta is string && d.insta.matches("https://www[.]instagram[.]com/[A-Za-z0-9_.]{1,30}")));
+    }
     function validAvailability(a) { return a in ["available", "busy", "unavailable"]; }
     function validTerms(t) { return t.version is string && t.fee == 200 && t.acceptedAt == request.time; }
     function validDetails(d) {
@@ -25,10 +31,11 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-        // The owner edits their details, services and availability, and records agreeing to the terms.
+        // The owner edits their details, links, services and availability, and records agreeing to the terms.
         || (signedIn() && resource.data.ownerUid == request.auth.uid
-            && changed().hasOnly(["name", "person", "wa", "state", "city", "pin", "services", "availability", "terms"])
+            && changed().hasOnly(["name", "person", "wa", "state", "city", "pin", "services", "availability", "terms", "maps", "insta"])
             && validDetails(request.resource.data)
+            && validLinks(request.resource.data)
             && request.resource.data.services is list
             && request.resource.data.services.size() <= 100
             && validAvailability(request.resource.data.availability)

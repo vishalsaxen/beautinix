@@ -157,6 +157,11 @@ td .sub{display:block;font-size:12px;color:var(--muted)}
 .pill.trusted::before{display:none}
 .kyc-note{border-color:rgb(245 165 36 / .4)}
 .kyc-note b{color:var(--warn)}
+.meta a{display:inline-flex;align-items:center;gap:6px}
+.meta a .ico{width:15px;height:15px}
+.panel .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
+.links-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+#links-form .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
 .s-cancelled{background:var(--bad-soft);color:var(--bad)}
 .s-checkedin{background:var(--accent-soft);color:var(--accent)}
 
@@ -293,6 +298,8 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mu
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".8"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 </svg>
 
@@ -905,9 +912,10 @@ function renderSalon(){
     ${s.email?`<span>${icon("mail")}${esc(s.email)}</span>`:""}
     <span>${icon("store")}${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</span>
   </div><p class="small">${esc(terms)}</p></div>`}
+  ${linksPanel(s,!!mine)}
   ${photoPanel(s,!!mine)}
   ${ownerPanels(s,!!mine)}`;
-  bindOwner(el,s);bindPhoto(el,s);
+  bindOwner(el,s);bindPhoto(el,s);bindLinks(el,s);
   if(mine)bindEdit(el,s);
   if(!mine){$("#salon-pick").value=s.id;
     $("#salon-pick").onchange=e=>{salonSel=e.target.value;store.set("bx-salon",salonSel);renderSalon()}}
@@ -1096,6 +1104,37 @@ async function makePhoto(file){
   if(!full||!thumb)throw new Error("too big");
   return {full,thumb};
 }
+// Google Maps and Instagram links. Guests see them once they have an account.
+const MAPS_RE=/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.(com|co\.in)\/maps|maps\.google\.(com|co\.in))\/[^\s<>"]*$/;
+function mapsLink(v){v=v.trim();if(!v)return "";if(/^http:\/\//.test(v))v="https://"+v.slice(7);if(!/^https:\/\//.test(v))v="https://"+v;return MAPS_RE.test(v)&&v.length<=300?v:null}
+// Accepts a profile link, @handle or handle, and keeps the plain profile link.
+function instaLink(v){v=v.trim();if(!v)return "";
+  const m=v.match(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\/([A-Za-z0-9_.]{1,30})\/?(?:[?#].*)?$/)||v.match(/^@?([A-Za-z0-9_.]{1,30})$/);
+  return m?`https://www.instagram.com/${m[1]}`:null}
+const instaHandle=u=>"@"+u.split("/").pop();
+const linkRows=s=>`${s.maps?`<dt>Map</dt><dd><a href="${esc(s.maps)}" target="_blank" rel="noopener">${icon("pin")}Open in Google Maps</a></dd>`:""}${s.insta?`<dt>Instagram</dt><dd><a href="${esc(s.insta)}" target="_blank" rel="noopener">${icon("camera")}${esc(instaHandle(s.insta))}</a></dd>`:""}`;
+let linksErr="",linksDraft=null;
+function linksPanel(s,editable){
+  if(!editable)return s.maps||s.insta?`<div class="panel"><div class="panel-head"><h3>Map and Instagram</h3></div><dl class="meta">${linkRows(s)}</dl></div>`:"";
+  const d=linksDraft||{maps:s.maps||"",insta:s.insta||""};
+  return `<form class="panel" id="links-form" novalidate><div class="panel-head"><h3>Map and Instagram</h3><span>Guests see these after they create an account</span></div>
+    <div class="grid2 links-grid"><label class="f">Google Maps link<input class="input" id="ln-maps" value="${esc(d.maps)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off"></label>
+    <label class="f">Instagram<input class="input" id="ln-insta" value="${esc(d.insta)}" placeholder="https://www.instagram.com/yoursalon" inputmode="url" autocomplete="off"></label></div>
+    ${linksErr?`<p class="err" role="alert">${esc(linksErr)}</p>`:""}
+    <div class="row"><button class="btn primary" type="submit">Publish</button>${s.maps||s.insta?`<dl class="meta">${linkRows(s)}</dl>`:""}</div></form>`;
+}
+function bindLinks(el,s){
+  const f=$("#links-form");if(!f)return;
+  f.addEventListener("input",()=>{linksDraft={maps:$("#ln-maps").value,insta:$("#ln-insta").value}});
+  f.onsubmit=async e=>{e.preventDefault();
+    const maps=mapsLink($("#ln-maps").value),insta=instaLink($("#ln-insta").value);
+    linksDraft={maps:$("#ln-maps").value,insta:$("#ln-insta").value};
+    linksErr=maps===null?"Paste the link from Google Maps → Share, for example https://maps.app.goo.gl/…":insta===null?"Paste your Instagram profile link, for example https://www.instagram.com/yoursalon":"";
+    if(linksErr)return renderSalon();
+    lock(f);
+    try{await col("salons").doc(s.id).update({maps,insta})}catch(err){console.error(err);linksErr=errMsg(err);return renderSalon()}
+    linksDraft=null;toast(maps||insta?"Published. Guests with an account can see your links.":"Links removed");renderSalon()};
+}
 function photoPanel(s,editable){
   const th=thumbOf(s.id);
   return `<div class="panel photo-panel"><div class="panel-head"><h3>Salon photo</h3>${th?`<span>Guests see this on your card</span>`:""}</div>
@@ -1177,10 +1216,10 @@ function salonCard(s,open){
   const off=(s.availability||"available")!=="available",services=s.services||[],g=guestUser();
   const th=thumbOf(s.id);
   return `<article class="card salon-card">${th?`<button class="salon-thumb" data-photo="${s.id}" aria-label="See photo of ${esc(s.name)}"><img src="${th}" alt="${esc(s.name)}" loading="lazy"></button>`:""}<div class="panel-head"><h3>${esc(s.name)}</h3>${availPill(s)}</div>${isTrusted(s)?`<div>${trustBadge()}</div>`:""}
-    ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd></dl>
+    ${open?`<dl class="meta"><dt>Location</dt><dd>${esc(s.city)}, ${esc(s.state)} ${esc(s.pin)}</dd><dt>WhatsApp</dt><dd><a class="mono" href="https://wa.me/${s.wa.replace(/[^0-9]/g,"")}" target="_blank" rel="noopener">${esc(s.wa)}</a></dd>${linkRows(s)}</dl>
       <div class="svc-list">${services.length?services.map(v=>`<span><span>${esc(v.name)}</span><b class="num">${priceText(v)}</b></span>`).join(""):`<span class="small">No services listed yet</span>`}</div>
       ${g?`<button class="btn primary" data-book="${s.id}" ${off||!services.length?"disabled":""}>${off?(s.availability==="busy"?"Busy right now, try later":"Not taking bookings"):"Book"}</button>`:""}`
-    :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
+    :`<dl class="meta masked"><dt>Location</dt><dd>${MASK}</dd><dt>WhatsApp</dt><dd>+91 ${MASK}</dd><dt>Map</dt><dd>${MASK}</dd><dt>Instagram</dt><dd>@${MASK}</dd><dt>Services</dt><dd>${MASK}</dd><dt>Prices</dt><dd>₹ ${MASK}</dd></dl>
       <button class="btn" data-gv="signup">${icon("lock")} Create account to see details</button>`}
   </article>`;
 }
